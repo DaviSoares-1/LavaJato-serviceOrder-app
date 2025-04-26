@@ -90,7 +90,7 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 py-10">
+		<div className="min-h-screen flex items-center justify-center px-4 py-10">
 			<form
 				onSubmit={handleSubmit}
 				className="w-full max-w-4xl bg-gradient-to-br from-yellow-300 to-yellow-600 p-5 md:p-10 rounded-xl shadow-lg space-y-6"
@@ -99,55 +99,94 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 					Dados do Atendimento:
 				</h2>
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-					<input
-						id="dataHora"
-						type="datetime-local"
-						value={form.dataHora}
-						onChange={(e) => setForm({ ...form, dataHora: e.target.value })}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-						required
-					/>
-					<input
-						type="text"
-						placeholder="Responsável"
-						value={form.responsavel}
-						onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-						required
-					/>
-					<input
-						type="number"
-						min={0}
-						placeholder="Carro nº"
-						value={form.carroNumero}
-						onChange={(e) => setForm({ ...form, carroNumero: e.target.value })}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-						required
-					/>
+					<div className="">
+						<label htmlFor="dataHora" className="mb-2 block text-lg font-sans">
+							Data e Hora:
+						</label>
+						<input
+							id="dataHora"
+							type="datetime-local"
+							value={form.dataHora}
+							onChange={(e) => setForm({ ...form, dataHora: e.target.value })}
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+							required
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor="responsavel"
+							className="mb-2 block text-lg font-sans"
+						>
+							Nome:
+						</label>
+						<input
+							id="responsavel"
+							type="text"
+							placeholder="Responsável"
+							value={form.responsavel}
+							onChange={(e) =>
+								setForm({ ...form, responsavel: e.target.value })
+							}
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+							required
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor="carroNumero"
+							className="mb-2 block text-lg font-sans"
+						>
+							Numeração:
+						</label>
+						<input
+							id="carroNumero"
+							type="number"
+							min={0}
+							placeholder="Carro nº"
+							value={form.carroNumero}
+							onChange={(e) =>
+								setForm({ ...form, carroNumero: e.target.value })
+							}
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
+							required
+						/>
+					</div>
 				</div>
-
 				<h2 className="font-mono text-2xl font-bold text-slate-900">
 					Dados do Veículo:
 				</h2>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<input
-						type="text"
-						placeholder="Modelo do carro"
-						value={form.modeloCarro}
-						onChange={(e) => setForm({ ...form, modeloCarro: e.target.value })}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-						required
-					/>
-					<input
-						type="text"
-						placeholder="Placa do carro"
-						value={form.placaCarro}
-						onChange={(e) => setForm({ ...form, placaCarro: e.target.value })}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-						required
-					/>
+					<div>
+						<label htmlFor="modelo" className="mb-2 block text-lg font-sans">
+							Modelo:
+						</label>
+						<input
+							id="modelo"
+							type="text"
+							placeholder="Modelo do carro"
+							value={form.modeloCarro}
+							onChange={(e) =>
+								setForm({ ...form, modeloCarro: e.target.value })
+							}
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+							required
+						/>
+					</div>
+					<div>
+						<label htmlFor="placa" className="mb-2 block text-lg font-sans">
+							Placa:
+						</label>
+						<input
+							id="placa"
+							type="text"
+							placeholder="Placa do carro"
+							value={form.placaCarro}
+							onChange={(e) => setForm({ ...form, placaCarro: e.target.value })}
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+							required
+						/>
+					</div>
 				</div>
-
 				<h2 className="font-mono text-2xl font-bold text-slate-900">
 					Serviços Solicitados:
 				</h2>
@@ -182,25 +221,36 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 					Valor a Receber:
 				</h2>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<input
-						type="number"
-						min={0}
-						placeholder="Total a pagar"
-						value={form.total}
-						onChange={(e) => setForm({ ...form, total: e.target.value })}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-						required
-					/>
-					<input
-						type="number"
-						min={0}
-						placeholder="Caixinha"
-						value={form.caixinha}
-						onChange={(e) => setForm({ ...form, caixinha: e.target.value })}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-					/>
+					<div>
+						<label htmlFor="total" className="mb-2 block text-lg font-sans">
+							Total a pagar:
+						</label>
+						<input
+							id="total"
+							type="number"
+							min={0}
+							placeholder="R$ 00,00"
+							value={form.total}
+							onChange={(e) => setForm({ ...form, total: e.target.value })}
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
+							required
+						/>
+					</div>
+					<div>
+						<label htmlFor="caixinha" className="mb-2 block text-lg font-sans">
+							Caixinha:
+						</label>
+						<input
+							id="caixinha"
+							type="number"
+							min={0}
+							placeholder="R$ 00,00"
+							value={form.caixinha}
+							onChange={(e) => setForm({ ...form, caixinha: e.target.value })}
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
+						/>
+					</div>
 				</div>
-
 				<h2 className="font-mono text-2xl font-bold text-slate-900">
 					Forma de Pagamento:
 				</h2>
@@ -229,16 +279,18 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 						onChange={(e) =>
 							setForm({ ...form, descricaoOutros: e.target.value })
 						}
-						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+						className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full resize-none"
 					/>
 				)}
 
-				<h2 className="font-mono text-2xl font-bold text-slate-900">Observações:</h2>
+				<h2 className="font-mono text-2xl font-bold text-slate-900">
+					Observações:
+				</h2>
 				<textarea
 					placeholder="Informações adicionais sobre o serviço"
 					value={form.observacoes}
 					onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-					className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+					className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full resize-none"
 				/>
 
 				<h2 className="font-mono text-2xl font-semibold text-slate-900">
