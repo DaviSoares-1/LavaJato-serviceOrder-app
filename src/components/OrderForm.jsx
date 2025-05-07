@@ -195,10 +195,10 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 						"Lavagem Geral",
 						"Ducha",
 						"Aspiração",
+						"Estacionamento",
 						"Higienização",
 						"Aplicação de cera",
 						"Polimento",
-						"Estacionamento",
 						"Uber/Táxi",
 						"Carro Grande",
 						"Carro Pequeno"
