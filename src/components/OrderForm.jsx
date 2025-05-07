@@ -192,10 +192,10 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 				</h2>
 				<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
 					{[
+						"Estacionamento",
 						"Lavagem Geral",
 						"Ducha",
 						"Aspiração",
-						"Estacionamento",
 						"Higienização",
 						"Aplicação de cera",
 						"Polimento",
@@ -230,6 +230,7 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 							id="total"
 							type="number"
 							min={0}
+							step={0.1}
 							placeholder="R$ 00,00"
 							value={form.total}
 							onChange={(e) => setForm({ ...form, total: e.target.value })}
@@ -245,6 +246,7 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 							id="caixinha"
 							type="number"
 							min={0}
+							step={0.1}
 							placeholder="R$ 00,00"
 							value={form.caixinha}
 							onChange={(e) => setForm({ ...form, caixinha: e.target.value })}
@@ -257,13 +259,13 @@ const OrderForm = ({ editingOrder, setEditingOrder }) => {
 				</h2>
 				<div className="flex flex-wrap gap-4 text-slate-900">
 					{["Dinheiro", "Cartão de Crédito/Débito", "PIX", "Outros"].map(
-						(forma) => (
+						(forma, index, arr) => (
 							<label key={forma} className="flex items-center gap-2">
 								<input
 									type="radio"
 									name="formaPagamento"
 									value={forma}
-									checked={form.formaPagamento === forma}
+									defaultChecked={forma === "PIX"}
 									onChange={(e) =>
 										setForm({ ...form, formaPagamento: e.target.value })
 									}
