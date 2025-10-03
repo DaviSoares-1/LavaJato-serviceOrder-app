@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@tailwind base;
+@tailwind utilities;
+
+.input {
+	@apply p-2 border border-gray-300 rounded w-full;
+}
+
+body {
+	@apply bg-gray-900;
+}
+
+@layer components {
+	.no-spinner::-webkit-outer-spin-button,
+	.no-spinner::-webkit-inner-spin-button {
+		margin: 0;
+		-webkit-appearance: none;
+	}
+}
+
+@layer utilities {
+	/* Chrome, Safari and Opera */
+	.scrollbar-hidden::-webkit-scrollbar {
+		display: none;
+	}
+	/* Firefox */
+	.scrollbar-hidden {
+		scrollbar-width: none;
+	}
+	/* IE and Edge */
+	.scrollbar-hidden {
+		-ms-overflow-style: none;
+	}
+}

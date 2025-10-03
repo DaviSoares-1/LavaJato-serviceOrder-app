@@ -1,0 +1,9 @@
+Dg$REcFNG9rjb8YB4s#h5x - DB PASSWORD
+
+URL:
+
+https://jtwdjegwxazxzmhelepg.supabase.co
+
+API KEY:
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0d2RqZWd3eGF6eHptaGVsZXBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5OTk1NzgsImV4cCI6MjA3MjU3NTU3OH0.AWfWWwyLTZI-Aod8pFTCIRQrXk3nRWWzgSA7LlMA1O0 - 
