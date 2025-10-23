@@ -6,7 +6,7 @@ function TrashListSection({ deletedOrders, onRestore, onPermanentDelete }) {
 		placa: "",
 		total: "",
 		caixinha: "",
-		cantina: "",
+		venda: "",
 		numero: "",
 		status: ""
 	})
@@ -24,7 +24,7 @@ function TrashListSection({ deletedOrders, onRestore, onPermanentDelete }) {
 			placa: "",
 			total: "",
 			caixinha: "",
-			cantina: "",
+			venda: "",
 			numero: "",
 			status: ""
 		})
@@ -49,8 +49,8 @@ function TrashListSection({ deletedOrders, onRestore, onPermanentDelete }) {
 		const matchCaixinha = filtros.caixinha
 			? Number(order.caixinha) === Number(filtros.caixinha)
 			: true
-		const matchCantina = filtros.cantina
-			? Number(order.cantina) === Number(filtros.cantina)
+		const matchVenda = filtros.venda
+			? Number(order.valorProduto) === Number(filtros.venda)
 			: true
 		const matchNumero = filtros.numero
 			? Number(order.carroNumero) === Number(filtros.numero)
@@ -64,7 +64,7 @@ function TrashListSection({ deletedOrders, onRestore, onPermanentDelete }) {
 			matchPlaca &&
 			matchTotal &&
 			matchCaixinha &&
-			matchCantina &&
+			matchVenda &&
 			matchNumero &&
 			matchStatus
 		)
@@ -124,10 +124,10 @@ function TrashListSection({ deletedOrders, onRestore, onPermanentDelete }) {
 							/>
 							<input
 								type="number"
-								name="cantina"
-								value={filtros.cantina}
+								name="venda"
+								value={filtros.venda}
 								onChange={handleChange}
-								placeholder="Cantina (ex: R$ 2,50)"
+								placeholder="Venda de Produto (ex: R$ 5,00)"
 								min={0}
 								step={0.01}
 								className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
@@ -189,10 +189,10 @@ function TrashListSection({ deletedOrders, onRestore, onPermanentDelete }) {
 									<strong>Total:</strong> {formatBRL(order.total)}
 								</p>
 								<p>
-									<strong>Caixinha:</strong> {formatBRL(order.caixinha)}
+									<strong>Venda:</strong> {formatBRL(order.valorProduto * order.quantidadeProduto)}
 								</p>
 								<p>
-									<strong>Cantina:</strong> {formatBRL(order.cantina)}
+									<strong>Caixinha:</strong> {formatBRL(order.caixinha)}
 								</p>
 								<p>
 									<strong>Ordem n°:</strong> {order.carroNumero}

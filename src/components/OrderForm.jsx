@@ -25,7 +25,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 		servicos: [],
 		total: "",
 		caixinha: "",
-		cantina: "",
+		vendaProdutosAtiva: "",
+		nomeProduto: "",
+		valorProduto: "",
+		quantidadeProduto: "",
 		formaPagamento: "",
 		descricaoOutros: "",
 		observacoes: "",
@@ -121,7 +124,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			servicos: [],
 			total: "",
 			caixinha: "",
-			cantina: "",
+			vendaProdutosAtiva: "",
+			nomeProduto: "",
+			valorProduto: "",
+			quantidadeProduto: "",
 			formaPagamento: "",
 			descricaoOutros: "",
 			observacoes: "",
@@ -178,8 +184,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			{ campo: form.modeloCarro, nome: "Modelo do carro" },
 			{ campo: form.placaCarro, nome: "Placa do carro" },
 			{ campo: form.total, nome: "Valor total" },
-			{ campo: form.caixinha, nome: "Caixinha" },
-			{ campo: form.cantina, nome: "Cantina" }
+			{ campo: form.caixinha, nome: "Caixinha" }
 		]
 
 		camposObrigatorios.forEach(({ campo, nome }) => {
@@ -260,7 +265,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			observacoes: formatInput(form.observacoes),
 			total: form.total,
 			caixinha: form.caixinha,
-			cantina: form.cantina,
+			vendaProdutosAtiva: form.vendaProdutosAtiva,
+			nomeProduto: form.nomeProduto,
+			valorProduto: form.valorProduto,
+			quantidadeProduto: form.quantidadeProduto,
 			formaPagamento: form.formaPagamento,
 			descricaoOutros: formatInput(form.descricaoOutros),
 			status: editingOrder
@@ -386,7 +394,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			observacoes: formatInput(form.observacoes),
 			total: form.total,
 			caixinha: form.caixinha,
-			cantina: form.cantina,
+			vendaProdutosAtiva: form.vendaProdutosAtiva,
+			nomeProduto: form.nomeProduto,
+			valorProduto: form.valorProduto,
+			quantidadeProduto: form.quantidadeProduto,
 			formaPagamento: form.formaPagamento,
 			descricaoOutros: formatInput(form.descricaoOutros),
 			status: "processada",
@@ -573,7 +584,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 				</h2>
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 					<div className="">
-						<label htmlFor="dataHora" className="mb-2 block text-lg font-sans">
+						<label
+							htmlFor="dataHora"
+							className="mb-2 block text-lg font-sans cursor-pointer"
+						>
 							Data e Hora:
 						</label>
 						<input
@@ -588,7 +602,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 					<div>
 						<label
 							htmlFor="responsavel"
-							className="mb-2 block text-lg font-sans"
+							className="mb-2 block text-lg font-sans cursor-pointer"
 						>
 							Nome:
 						</label>
@@ -607,7 +621,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 					<div>
 						<label
 							htmlFor="carroNumero"
-							className="mb-2 block text-lg font-sans"
+							className="mb-2 block text-lg font-sans cursor-pointer"
 						>
 							Numeração:
 						</label>
@@ -630,7 +644,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 				</h2>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div>
-						<label htmlFor="modelo" className="mb-2 block text-lg font-sans">
+						<label
+							htmlFor="modelo"
+							className="mb-2 block text-lg font-sans cursor-pointer"
+						>
 							Modelo:
 						</label>
 						<input
@@ -646,7 +663,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 						/>
 					</div>
 					<div>
-						<label htmlFor="placa" className="mb-2 block text-lg font-sans">
+						<label
+							htmlFor="placa"
+							className="mb-2 block text-lg font-sans cursor-pointer"
+						>
 							Placa:
 						</label>
 						<input
@@ -748,7 +768,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 				</h2>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div>
-						<label htmlFor="total" className="mb-2 block text-lg font-sans">
+						<label
+							htmlFor="total"
+							className="mb-2 block text-lg font-sans cursor-pointer"
+						>
 							Total do Serviço:
 						</label>
 						<input
@@ -764,7 +787,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 						/>
 					</div>
 					<div>
-						<label htmlFor="caixinha" className="mb-2 block text-lg font-sans">
+						<label
+							htmlFor="caixinha"
+							className="mb-2 block text-lg font-sans cursor-pointer"
+						>
 							Caixinha:
 						</label>
 						<input
@@ -778,21 +804,56 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
 						/>
 					</div>
-					<div>
-						<label htmlFor="total" className="mb-2 block text-lg font-sans">
-							Cantina:
+					{/* Vendas de Produtos */}
+					<div className="bg-gradient-to-br from-yellow-800 to-yellow-600 rounded-lg p-4 mt-6">
+						<label className="flex items-center gap-2 mb-4 text-slate-200 text-lg font-sans cursor-pointer">
+							<input
+								type="checkbox"
+								checked={form.vendaProdutosAtiva || false}
+								onChange={(e) =>
+									setForm({ ...form, vendaProdutosAtiva: e.target.checked })
+								}
+							/>
+							Registrar Venda de Produto
 						</label>
-						<input
-							id="total"
-							type="number"
-							min={0}
-							step={0.1}
-							placeholder="R$ 00,00"
-							value={form.cantina}
-							onChange={(e) => setForm({ ...form, cantina: e.target.value })}
-							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
-							required
-						/>
+
+						{form.vendaProdutosAtiva && (
+							<div className="space-y-4">
+								<input
+									type="text"
+									placeholder="Nome do produto vendido"
+									className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+									value={form.nomeProduto || ""}
+									onChange={(e) =>
+										setForm({ ...form, nomeProduto: e.target.value })
+									}
+								/>
+
+								<input
+									type="number"
+									min={0}
+									step={0.01}
+									placeholder="Valor unitário (R$)"
+									className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
+									value={form.valorProduto || ""}
+									onChange={(e) =>
+										setForm({ ...form, valorProduto: e.target.value })
+									}
+								/>
+
+								<input
+									type="number"
+									min={1}
+									step={1}
+									placeholder="Quantidade vendida"
+									className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
+									value={form.quantidadeProduto || ""}
+									onChange={(e) =>
+										setForm({ ...form, quantidadeProduto: e.target.value })
+									}
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 				<h2 className="font-mono text-2xl font-bold text-slate-900">

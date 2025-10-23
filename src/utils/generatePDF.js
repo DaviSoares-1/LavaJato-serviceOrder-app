@@ -28,7 +28,7 @@ export const generatePDF = async (order) => {
 
 	const totalPagoFormatado = formatarBRL(order.total)
 	const caixinhaFormatado = formatarBRL(order.caixinha)
-	const cantinaFormatado = formatarBRL(order.cantina)
+	const valorProdutoFormatado = formatarBRL(order.valorProduto)
 
 	// 🔹 Cabeçalho formal
 	const addHeader = () => {
@@ -130,8 +130,8 @@ export const generatePDF = async (order) => {
 
 	addSection("Resumo Financeiro")
 	addField("Total do Serviço:", totalPagoFormatado)
+	addField("Venda de Produto:", valorProdutoFormatado)
 	addField("Caixinha:", caixinhaFormatado)
-	addField("Cantina:", cantinaFormatado)
 	addField("Forma de Pagamento:", order.formaPagamento)
 
 	if (order.formaPagamento === "Outros") {

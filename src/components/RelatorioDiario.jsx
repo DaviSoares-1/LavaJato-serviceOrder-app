@@ -103,7 +103,9 @@ function RelatorioDiario() {
 		todasAsOrdens.forEach((order) => {
 			if (order.status === "em processamento" && !order.forma_pagamento) {
 				totalSemFormaPagamento +=
-					parseFloat(order.total || 0) + parseFloat(order.cantina || 0)
+					// parseFloat(order.total || 0) + parseFloat(order.cantina || 0)
+					parseFloat(order.total || 0) +
+					parseFloat(order.valorProduto * order.quantidadeProduto || 0)
 			}
 		})
 
@@ -120,8 +122,8 @@ function RelatorioDiario() {
 			Débito: 0,
 			"Código QR Pix": 0,
 			Outros: 0,
-			Caixinha: 0,
-			Cantina: 0
+			Caixinha: 0
+			// Cantina: 0
 		}
 
 		const todasAsOrdens = [...orders, ...deletedOrders]
@@ -130,16 +132,21 @@ function RelatorioDiario() {
 			if (order.status === "processada" && order.forma_pagamento) {
 				const valor = parseFloat(order.total || 0)
 				const caixinha = parseFloat(order.caixinha || 0)
-				const cantina = parseFloat(order.cantina || 0)
+				const venda = parseFloat(
+					order.valorProduto * order.quantidadeProduto || 0
+				)
+				// const cantina = parseFloat(order.cantina || 0)
 
 				if (totais.hasOwnProperty(order.forma_pagamento)) {
-					totais[order.forma_pagamento] += valor + cantina
+					// totais[order.forma_pagamento] += valor + cantina
+					totais[order.forma_pagamento] += valor + venda
 				} else {
-					totais.Outros += valor + cantina
+					// totais.Outros += valor + cantina
+					totais.Outros += valor
 				}
 
 				totais.Caixinha += caixinha
-				totais.Cantina += cantina
+				// totais.Cantina += cantina
 			}
 		})
 
@@ -155,39 +162,39 @@ function RelatorioDiario() {
 	}, [orders, deletedOrders])
 
 	// 🔹 Vendas da Cantina
-	const valoresCantina = useMemo(() => {
-		const totaisCantina = {
-			Dinheiro: 0,
-			Crédito: 0,
-			Débito: 0,
-			"Código QR Pix": 0,
-			Outros: 0
-		}
+	// const valoresCantina = useMemo(() => {
+	// 	const totaisCantina = {
+	// 		Dinheiro: 0,
+	// 		Crédito: 0,
+	// 		Débito: 0,
+	// 		"Código QR Pix": 0,
+	// 		Outros: 0
+	// 	}
 
-		const todasAsOrdens = [...orders, ...deletedOrders]
+	// 	const todasAsOrdens = [...orders, ...deletedOrders]
 
-		todasAsOrdens.forEach((order) => {
-			if (order.status === "processada" && order.forma_pagamento) {
-				const cantina = parseFloat(order.cantina || 0)
+	// 	todasAsOrdens.forEach((order) => {
+	// 		if (order.status === "processada" && order.forma_pagamento) {
+	// 			const cantina = parseFloat(order.cantina || 0)
 
-				if (totaisCantina.hasOwnProperty(order.forma_pagamento)) {
-					totaisCantina[order.forma_pagamento] += cantina
-				} else {
-					totaisCantina.Outros += cantina
-				}
-			}
-		})
+	// 			if (totaisCantina.hasOwnProperty(order.forma_pagamento)) {
+	// 				totaisCantina[order.forma_pagamento] += cantina
+	// 			} else {
+	// 				totaisCantina.Outros += cantina
+	// 			}
+	// 		}
+	// 	})
 
-		return {
-			...totaisCantina,
-			total:
-				totaisCantina.Dinheiro +
-				totaisCantina.Crédito +
-				totaisCantina.Débito +
-				totaisCantina["Código QR Pix"] +
-				totaisCantina.Outros
-		}
-	}, [orders, deletedOrders])
+	// 	return {
+	// 		...totaisCantina,
+	// 		total:
+	// 			totaisCantina.Dinheiro +
+	// 			totaisCantina.Crédito +
+	// 			totaisCantina.Débito +
+	// 			totaisCantina["Código QR Pix"] +
+	// 			totaisCantina.Outros
+	// 	}
+	// }, [orders, deletedOrders])
 
 	// 🔹 Valores de "Outros"
 	const valoresOutros = useMemo(() => {
@@ -201,7 +208,8 @@ function RelatorioDiario() {
 		todasAsOrdens.forEach((order) => {
 			if (order.status === "processada" && order.forma_pagamento === "Outros") {
 				const valor =
-					parseFloat(order.total || 0) + parseFloat(order.cantina || 0)
+					// parseFloat(order.total || 0) + parseFloat(order.cantina || 0)
+					parseFloat(order.total || 0)
 
 				totaisOutros.recebidos += valor
 				totaisOutros.detalhesRecebidos.push({
@@ -214,10 +222,14 @@ function RelatorioDiario() {
 		return totaisOutros
 	}, [orders, deletedOrders])
 
-	// Cálculo total de gastos
 	const totalGastos = gastos.reduce((acc, g) => acc + g.valorGasto, 0)
 
 	const totalServicosPrestados = orders.length + deletedOrders.length
+
+	// 🔹 Considera também as ordens deletadas para somar todas as vendas de produtos
+	const vendasProdutos = [...orders, ...deletedOrders].filter(
+		(order) => order.venda_produtos_ativa && order.nome_produto
+	)
 
 	// 🔹 Adicionar gasto no Supabase
 	const handleAdicionarGasto = async () => {
@@ -324,7 +336,8 @@ function RelatorioDiario() {
 			totalServicosPrestados,
 			valoresRecebidos,
 			valoresOutros,
-			valoresCantina,
+			// valoresCantina,
+			vendasProdutos,
 			gastos,
 			notaFiscalUrl: finalNotaFiscalUrl,
 			notaFiscal: finalNotaFiscalName,
@@ -401,7 +414,7 @@ function RelatorioDiario() {
 			</div>
 
 			{/* Vendas da Cantina */}
-			<div className="bg-gradient-to-br from-lime-400 to-lime-600 rounded-lg p-4">
+			{/* <div className="bg-gradient-to-br from-lime-400 to-lime-600 rounded-lg p-4">
 				<h3 className="text-xl font-semibold mb-2">🍔 Vendas da Cantina:</h3>
 				<ul className="space-y-1">
 					<li>
@@ -425,12 +438,47 @@ function RelatorioDiario() {
 						{formatarBRL(valoresCantina.total)}
 					</li>
 				</ul>
+			</div> */}
+
+			{/* Vendas de Produtos */}
+			<div className="bg-gradient-to-br from-lime-400 to-lime-600 rounded-lg p-4 mt-6">
+				<h3 className="text-xl font-semibold mb-2">🛍️ Vendas de Produtos:</h3>
+
+				{vendasProdutos.length === 0 ? (
+					<p>Nenhum produto vendido hoje.</p>
+				) : (
+					<ul className="mt-4 space-y-2">
+						{vendasProdutos.map((v, i) => (
+							<li
+								key={i}
+								className="flex flex-wrap justify-between border-b border-gray-500 pb-1"
+							>
+								<span>
+									• {v.nome_produto} ({v.quantidade_produto}x)
+								</span>
+								<span>
+									{formatarBRL(v.valor_produto * v.quantidade_produto)}
+								</span>
+							</li>
+						))}
+
+						<li className="mt-2 font-bold">
+							Total:{" "}
+							{formatarBRL(
+								vendasProdutos.reduce(
+									(acc, v) => acc + v.valor_produto * v.quantidade_produto,
+									0
+								)
+							)}
+						</li>
+					</ul>
+				)}
 			</div>
 
 			<div className="bg-gradient-to-br from-purple-900 to-purple-600 rounded-lg p-4 mt-4 text-white shadow-lg">
-				<p className="font-bold text-lg mb-2">
+				<h3 className="text-xl font-semibold mb-2">
 					🧾 Pagamentos Pendentes/Alternativos:
-				</p>
+				</h3>
 				<ul className="list-disc ml-6 space-y-1">
 					{valoresOutros.detalhesRecebidos.map((d, i) => (
 						<li key={i}>
@@ -468,8 +516,8 @@ function RelatorioDiario() {
 							type="number"
 							min={0}
 							step={0.1}
-							placeholder="Valor gasto"
-							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+							placeholder="R$ 00,00"
+							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
 							value={valorGasto}
 							onChange={(e) => setValorGasto(e.target.value)}
 						/>
@@ -593,7 +641,9 @@ function RelatorioDiario() {
 						<div className="space-y-1">
 							<div className="text-base text-green-400 font-bold">
 								✅ Arquivo anexado:{" "}
-								<span className="font-semibold">{notaFiscal}</span>
+								<span className="font-semibold max-w-3xs block">
+									{notaFiscal}
+								</span>
 							</div>
 							<button
 								type="button"

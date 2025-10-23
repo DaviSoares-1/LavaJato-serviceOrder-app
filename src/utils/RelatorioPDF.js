@@ -4,7 +4,8 @@ import { fetchImageAsBase64 } from "./fetchImageAsBase64"
 export const generateRelatorioDiarioPDF = async ({
 	totalServicosPrestados,
 	valoresRecebidos,
-	valoresCantina,
+	// valoresCantina,
+	vendasProdutos,
 	valoresOutros,
 	gastos,
 	notaFiscalPath
@@ -116,12 +117,30 @@ export const generateRelatorioDiarioPDF = async ({
 	addField("Faturamento Total:", formatBRL(valoresRecebidos.total))
 
 	// Vendas da cantina
-	addSection("Vendas da Cantina")
-	addField("Dinheiro:", formatBRL(valoresCantina.Dinheiro))
-	addField("Crédito:", formatBRL(valoresCantina.Crédito))
-	addField("Débito:", formatBRL(valoresCantina.Débito))
-	addField("Código QR Pix:", formatBRL(valoresCantina["Código QR Pix"]))
-	addField("Faturamento Total:", formatBRL(valoresCantina.total))
+	// addSection("Vendas da Cantina")
+	// addField("Dinheiro:", formatBRL(valoresCantina.Dinheiro))
+	// addField("Crédito:", formatBRL(valoresCantina.Crédito))
+	// addField("Débito:", formatBRL(valoresCantina.Débito))
+	// addField("Código QR Pix:", formatBRL(valoresCantina["Código QR Pix"]))
+	// addField("Faturamento Total:", formatBRL(valoresCantina.total))
+
+	// 🔹 Vendas de Produtos
+	addSection("Vendas de Produtos")
+	if (vendasProdutos.length > 0) {
+		vendasProdutos.forEach((v) => {
+			addField(
+				`• ${v.nome_produto} (${v.quantidade_produto}x)`,
+				formatBRL(v.valor_produto * v.quantidade_produto)
+			)
+		})
+		const totalProdutos = vendasProdutos.reduce(
+			(acc, v) => acc + v.valor_produto * v.quantidade_produto,
+			0
+		)
+		addField("Total de Vendas: ", formatBRL(totalProdutos))
+	} else {
+		addField("Nenhuma venda registrada", "-")
+	}
 
 	// 🔹 Pagamentos Alternativos (Outros)
 	if (valoresOutros?.detalhesRecebidos?.length > 0) {
