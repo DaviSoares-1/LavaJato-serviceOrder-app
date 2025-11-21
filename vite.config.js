@@ -7,5 +7,5 @@ export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	// base: process.env.VITE_BASE_PATH || "/LavaJato-serviceOrder-app"
 	base:
-		process.env.NODE_ENV === "production" ? "/LavaJato-serviceOrder-app/" : "/" // ✅ '/' para localhost, subdiretório para produção
+		process.env.NODE_ENV ===  "/LavaJato-serviceOrder-app/"
 })
