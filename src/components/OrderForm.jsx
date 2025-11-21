@@ -7,13 +7,10 @@ import React, {
 } from "react"
 import useOrders from "../store/useOrders"
 import Toast from "./Toast"
-import { v4 as uuidv4 } from "uuid"
-import { supabase } from "../supabaseClient"
 import { uploadNotaFiscal, deleteNotaFiscal } from "../utils/uploadNotaFiscal"
 
 function OrderForm({ editingOrder, setEditingOrder }, ref) {
 	const fileInputRef = useRef(null)
-	const wrapperRef = useRef(null)
 	const { addOrder, updateOrder, orders, deletedOrders } = useOrders()
 	const [form, setForm] = useState({
 		dataHora: "",
@@ -78,6 +75,96 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 
 		return maioresNumeros.length > 0 ? Math.max(...maioresNumeros) + 1 : 1
 	}
+
+	// =================== Tabela de Preços ===================
+	const tabelaVeiculos = {
+		"Carro Pequeno": {
+			"Lavagem Geral": 40,
+			"Ducha com Secagem": 20
+		},
+		"Carro Grande": {
+			"Lavagem Geral": 50,
+			"Ducha com Secagem": 25
+		},
+		Moto: {
+			"Lavagem Geral": 30,
+			"Ducha com Secagem": 15
+		},
+		"Uber/Táxi": {
+			"Lavagem Geral": 30,
+			"Ducha com Secagem": 15
+		}
+		// se adicionar outros tipos, insira aqui
+	}
+
+	const tabelaServicosExtras = {
+		"Aplicação de cera": 30,
+		Polimento: 300,
+		Higienização: 200
+		// adicione mais extras quando necessário
+	}
+
+	// =================== Função: calcula preço base + extras ===================
+	/**
+	 * Retorna null se não houver informação suficiente (ex.: nenhum tipoVeiculo ou nenhum servico).
+	 * Regra: para tipos múltiplos de veículo, calcula o total base para cada tipo e escolhe o menor resultado.
+	 */
+	const getPrecoAutomaticoSomado = (
+		tipoVeiculoArray = [],
+		servicosArray = []
+	) => {
+		if (!Array.isArray(tipoVeiculoArray) || !Array.isArray(servicosArray))
+			return null
+		if (tipoVeiculoArray.length === 0 || servicosArray.length === 0) return null
+
+		// 1) Para cada tipo de veículo selecionado, soma os preços "principais" (tabelaVeiculos)
+		const precosPorTipo = tipoVeiculoArray
+			.map((tipo) => {
+				if (!tabelaVeiculos[tipo]) return null // sem tabela para esse tipo
+				let somaTipo = 0
+				servicosArray.forEach((servico) => {
+					const preco = tabelaVeiculos[tipo][servico]
+					if (typeof preco === "number") somaTipo += preco
+				})
+				// se nenhum serviço principal mapeado para esse tipo, devolve null
+				return somaTipo > 0 ? somaTipo : null
+			})
+			.filter((v) => v !== null) // remove tipos sem preço
+
+		// Se nenhum tipo tem preço definido para os serviços selecionados, não podemos calcular
+		if (precosPorTipo.length === 0) {
+			// mas ainda podemos verificar se todos os serviços são apenas "extras" (sem base)
+			// nesse caso base = 0 e seguimos para somar extras abaixo
+			// aqui optamos por base = 0
+		}
+
+		// 2) escolhe o menor preço base entre os tipos (isso resolve Uber/Táxi + Carro Pequeno -> escolhe 30)
+		const baseMinima = precosPorTipo.length > 0 ? Math.min(...precosPorTipo) : 0
+
+		// 3) soma os serviços extras independentes do veículo
+		let somaExtras = 0
+		servicosArray.forEach((servico) => {
+			if (tabelaServicosExtras[servico])
+				somaExtras += tabelaServicosExtras[servico]
+		})
+
+		const total = baseMinima + somaExtras
+		return total > 0 ? total : null
+	}
+
+	// =================== Preenche Total e Caixinha automaticamente ===================
+	useEffect(() => {
+		const preco = getPrecoAutomaticoSomado(form.tipoVeiculo, form.servicos)
+
+		if (preco !== null) {
+			setForm((prev) => ({
+				...prev,
+				total: preco,
+				caixinha: 0
+			}))
+		}
+		// se preco for null, não sobrescreve (mantém o que usuário já tenha digitado)
+	}, [form.tipoVeiculo, form.servicos])
 
 	// 🔹 Define automaticamente o próximo número sequencial quando não está editando
 	useEffect(() => {
@@ -278,6 +365,8 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 				: "em processamento"
 		}
 
+		console.log("📦 Dados base:", baseOrderData)
+
 		if (editingOrder) {
 			// 🔹 edição → faz upload se tiver arquivo
 			let notaFiscalUrl = form.notaFiscalUrl
@@ -296,7 +385,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			}
 
 			await updateOrder({
-				id: form.id,
+				id: editingOrder.id,
 				...baseOrderData,
 				notaFiscal: notaFiscalName,
 				notaFiscalUrl,
@@ -543,13 +632,6 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 
 	// ==================================================
 
-	useImperativeHandle(ref, () => ({
-		resetForm,
-		scrollToForm: () => {
-			wrapperRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-		}
-	}))
-
 	// 🔹 Validação: não permite duplicar numeração em ordens ativas ou na lixeira
 	const isCarroNumeroDuplicado = () => {
 		return [...orders, ...deletedOrders].some(
@@ -568,10 +650,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 
 	return (
 		<div
-			ref={wrapperRef}
+			ref={localRef}
 			className="min-h-screen flex items-center justify-center p-4 flex-col "
 		>
-			<h2 className="text-xl md:text-3xl font-bold text-white text-center mb-4">
+			<h2 className="text-3xl font-extrabold text-white text-center tracking-wide mb-8">
 				📝 Ficha de Serviço
 			</h2>
 			{showToast && <Toast message={toastMessage} type={toastType} />}
@@ -672,7 +754,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 						<input
 							id="placa"
 							type="text"
-							placeholder="Placa do carro"
+							placeholder="Placa do Veículo"
 							value={form.placaCarro}
 							onChange={(e) => setForm({ ...form, placaCarro: e.target.value })}
 							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"

@@ -214,7 +214,7 @@ function RelatorioDiario() {
 				totaisOutros.recebidos += valor
 				totaisOutros.detalhesRecebidos.push({
 					valor,
-					descricao: order.descricaoOutros || "Outro (não especificado)"
+					descricao: order.descricaoOutros || "Outro - não especificado"
 				})
 			}
 		})
@@ -240,77 +240,126 @@ function RelatorioDiario() {
 		}
 	}
 
-	const handleLimparDados = async () => {
-		if (
-			window.confirm(
-				"Tem certeza que deseja limpar todos os dados? Essa ação é irreversível."
+	// Relatório Diário em Mensagem de WhatsApp
+	const formatRelatorioMensagem = ({
+		totalServicosPrestados,
+		valoresRecebidos,
+		vendasProdutos,
+		valoresOutros,
+		gastos
+	}) => {
+		const formatBRL = (valor) =>
+			new Intl.NumberFormat("pt-BR", {
+				style: "currency",
+				currency: "BRL",
+				minimumFractionDigits: 2
+			}).format(Number(valor) || 0)
+
+		let mensagem = `*RELATÓRIO DIÁRIO - JJ LAVA-JATO LTDA*\n`
+		mensagem += `Data: ${new Date().toLocaleDateString("pt-BR")}\n\n`
+
+		// 🔹 Quantidade de serviços
+		mensagem += `*Serviços Prestados:* ${totalServicosPrestados}\n\n`
+
+		// 🔹 Valores Recebidos
+		mensagem += `*Valores Recebidos:*\n`
+		mensagem += `- Dinheiro: ${formatBRL(valoresRecebidos.Dinheiro)}\n`
+		mensagem += `- Crédito: ${formatBRL(valoresRecebidos.Crédito)}\n`
+		mensagem += `- Débito: ${formatBRL(valoresRecebidos.Débito)}\n`
+		mensagem += `- Código QR Pix: ${formatBRL(
+			valoresRecebidos["Código QR Pix"]
+		)}\n`
+		mensagem += `- Caixinha: ${formatBRL(valoresRecebidos.Caixinha)}\n`
+		mensagem += `- *Total:* ${formatBRL(valoresRecebidos.total)}\n\n`
+
+		// 🔹 Vendas de Produtos
+		if (vendasProdutos.length > 0) {
+			mensagem += `*Vendas de Produtos:*\n`
+			vendasProdutos.forEach((v) => {
+				mensagem += `- ${v.nome_produto} (${
+					v.quantidade_produto
+				}x): ${formatBRL(v.valor_produto * v.quantidade_produto)}\n`
+			})
+			const totalProdutos = vendasProdutos.reduce(
+				(acc, v) => acc + v.valor_produto * v.quantidade_produto,
+				0
 			)
-		) {
-			try {
-				// 🔹 Busca todas as ordens e deleta em lote
-				const { data: orders, error: fetchOrdersError } = await supabase
+			mensagem += `- *Total de Vendas:* ${formatBRL(totalProdutos)}\n\n`
+		}
+
+		// 🔹 Outros pagamentos
+		if (valoresOutros?.detalhesRecebidos?.length > 0) {
+			mensagem += `*Pagamentos Alternativos (Outros):*\n`
+			valoresOutros.detalhesRecebidos.forEach((d) => {
+				mensagem += `- ${d.descricao}: ${formatBRL(d.valor)}\n`
+			})
+			mensagem += `- *Total:* ${formatBRL(valoresOutros.recebidos)}\n\n`
+		}
+
+		// 🔹 Gastos
+		if (gastos.length > 0) {
+			mensagem += `*Gastos Diários:*\n`
+			gastos.forEach((g) => {
+				mensagem += `- ${g.descricaoGasto}: ${formatBRL(g.valorGasto)}\n`
+			})
+			const totalGastos = gastos.reduce((acc, g) => acc + g.valorGasto, 0)
+			mensagem += `- *Total de Gastos:* ${formatBRL(totalGastos)}\n\n`
+		}
+
+		mensagem += `Relatório gerado automaticamente.\n`
+		mensagem += `JJ LAVA-JATO LTDA`
+
+		return encodeURIComponent(mensagem)
+	}
+
+	const handleLimparDados = async () => {
+		if (!window.confirm("Tem certeza que deseja limpar todos os dados?")) return
+
+		try {
+			const {
+				data: { user }
+			} = await supabase.auth.getUser()
+
+			// 🔹 Buscar somente as ordens do usuário atual
+			const { data: orders } = await supabase
+				.from("orders_storage")
+				.select("id")
+				.eq("created_by", user.id)
+
+			if (orders?.length) {
+				await supabase
 					.from("orders_storage")
-					.select("id")
-
-				if (fetchOrdersError) throw fetchOrdersError
-
-				if (orders?.length) {
-					const { error: deleteOrdersError } = await supabase
-						.from("orders_storage")
-						.delete()
-						.in(
-							"id",
-							orders.map((o) => o.id)
-						)
-
-					if (deleteOrdersError) throw deleteOrdersError
-				}
-
-				// 🔹 Busca todos os gastos e deleta em lote
-				const { data: gastos, error: fetchGastosError } = await supabase
-					.from("gastos_diarios")
-					.select("id")
-
-				if (fetchGastosError) throw fetchGastosError
-
-				if (gastos?.length) {
-					const { error: deleteGastosError } = await supabase
-						.from("gastos_diarios")
-						.delete()
-						.in(
-							"id",
-							gastos.map((g) => g.id)
-						)
-
-					if (deleteGastosError) throw deleteGastosError
-				}
-
-				// 🔹 Remove todos os arquivos da pasta /notas no bucket notas-fiscais
-				const { data: files, error: listError } = await supabase.storage
-					.from("notas-fiscais")
-					.list("notas")
-
-				if (listError) throw listError
-
-				if (files?.length) {
-					const filePaths = files.map((f) => `notas/${f.name}`)
-					const { error: removeError } = await supabase.storage
-						.from("notas-fiscais")
-						.remove(filePaths)
-
-					if (removeError) throw removeError
-				}
-
-				// 🔹 Atualiza os estados locais (limpa a store)
-				useOrders.setState({ orders: [], deletedOrders: [] })
-				useGastos.setState({ gastos: [] })
-
-				// 🔹 Feedback para o usuário
-				alert("Todos os dados foram apagados com sucesso!")
-			} catch (error) {
-				console.error("Erro ao limpar dados:", error)
-				alert("Erro ao limpar os dados. Confira o console para detalhes.")
+					.delete()
+					.in(
+						"id",
+						orders.map((o) => o.id)
+					)
 			}
+
+			// 🔹 Buscar somente os gastos do usuário atual
+			const { data: gastos } = await supabase
+				.from("gastos_diarios")
+				.select("id")
+				.eq("created_by", user.id)
+
+			if (gastos?.length) {
+				await supabase
+					.from("gastos_diarios")
+					.delete()
+					.in(
+						"id",
+						gastos.map((g) => g.id)
+					)
+			}
+
+			// 🔹 Limpar storage
+			useOrders.setState({ orders: [], deletedOrders: [] })
+			useGastos.setState({ gastos: [] })
+
+			alert("Todos os dados foram apagados com sucesso!")
+		} catch (err) {
+			console.error(err)
+			alert("Erro ao limpar dados")
 		}
 	}
 
@@ -347,74 +396,48 @@ function RelatorioDiario() {
 	}
 
 	return (
-		<div className="text-slate-900 space-y-6">
-			<h2 className="text-xl md:text-3xl font-bold text-white text-center mb-4">
+		<div className="text-slate-50 space-y-8 max-w-5xl mx-auto">
+			<h2 className="text-3xl font-extrabold text-center tracking-wide">
 				📊 Relatório Diário
 			</h2>
 
-			{/* Quantidade de Veículos */}
-			<div className="bg-gradient-to-br from-yellow-300 to-yellow-600 rounded-lg p-4">
-				<h3 className="text-xl font-semibold mb-2">
-					🚗 Quantidade de Veículos:
-				</h3>
-				<ul className="space-y-1">
-					<li>
-						<span className="font-bold">• Total de serviços prestados: </span>
-						{totalServicosPrestados}
-					</li>
-				</ul>
-			</div>
+			{/* GRID PRINCIPAL */}
+			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+				{/* Quantidade de Veículos */}
+				<div className="bg-yellow-500/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-yellow-300">
+					<h3 className="text-xl font-semibold mb-3">
+						🚗 Quantidade de Veículos
+					</h3>
+					<p className="text-4xl font-bold">{totalServicosPrestados}</p>
+				</div>
 
-			{/* Valores a Receber */}
-			<div className="bg-gradient-to-br from-sky-400 to-sky-600 rounded-lg p-4">
-				<h3 className="text-xl font-semibold mb-2">💸 Valores a Receber:</h3>
-				<ul className="space-y-1">
-					<li>
-						<span className="font-bold">• Total a ser recebido: </span>
+				{/* Valores a Receber */}
+				<div className="bg-sky-500/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-sky-300">
+					<h3 className="text-xl font-semibold mb-3">💸 Valores a Receber</h3>
+					<p className="text-4xl font-bold">
 						{formatarBRL(valoresReceber.total)}
-					</li>
-				</ul>
-			</div>
+					</p>
+				</div>
 
-			{/* Valores Recebidos */}
-			<div className="bg-gradient-to-br from-lime-400 to-lime-600 rounded-lg p-4">
-				<h3 className="text-xl font-semibold mb-2">💰 Valores Recebidos:</h3>
-				<ul className="space-y-1">
-					<li>
-						{" "}
-						<span className="font-bold">• Dinheiro: </span>{" "}
-						{formatarBRL(valoresRecebidos.Dinheiro)}
-					</li>
-					<li>
-						{" "}
-						<span className="font-bold">• Crédito </span>{" "}
-						{formatarBRL(valoresRecebidos.Crédito)}
-					</li>
-					<li>
-						{" "}
-						<span className="font-bold">• Débito: </span>{" "}
-						{formatarBRL(valoresRecebidos.Débito)}
-					</li>
-					<li>
-						{" "}
-						<span className="font-bold">• Código QR Pix: </span>{" "}
-						{formatarBRL(valoresRecebidos["Código QR Pix"])}
-					</li>
-					<li>
-						{" "}
-						<span className="font-bold">• Caixinhas: </span>{" "}
-						{formatarBRL(valoresRecebidos.Caixinha)}
-					</li>
-					<li>
-						{" "}
-						<span className="font-bold">• Faturamento Total: </span>{" "}
-						{formatarBRL(valoresRecebidos.total)}
-					</li>
-				</ul>
-			</div>
+				{/* Valores Recebidos */}
+				<div className="bg-lime-500/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-lime-300">
+					<h3 className="text-xl font-semibold mb-3">💰 Valores Recebidos</h3>
 
-			{/* Vendas da Cantina */}
-			{/* <div className="bg-gradient-to-br from-lime-400 to-lime-600 rounded-lg p-4">
+					<ul className="space-y-1 text-lg">
+						<li>• Dinheiro: {formatarBRL(valoresRecebidos.Dinheiro)}</li>
+						<li>• Crédito: {formatarBRL(valoresRecebidos.Crédito)}</li>
+						<li>• Débito: {formatarBRL(valoresRecebidos.Débito)}</li>
+						<li>• Pix: {formatarBRL(valoresRecebidos["Código QR Pix"])}</li>
+						<li>• Caixinha: {formatarBRL(valoresRecebidos.Caixinha)}</li>
+					</ul>
+
+					<p className="mt-3 text-lg font-extrabold">
+						Total: {formatarBRL(valoresRecebidos.total)}
+					</p>
+				</div>
+
+				{/* Vendas da Cantina */}
+				{/* <div className="bg-gradient-to-br from-lime-400 to-lime-600 rounded-lg p-4">
 				<h3 className="text-xl font-semibold mb-2">🍔 Vendas da Cantina:</h3>
 				<ul className="space-y-1">
 					<li>
@@ -440,193 +463,233 @@ function RelatorioDiario() {
 				</ul>
 			</div> */}
 
-			{/* Vendas de Produtos */}
-			<div className="bg-gradient-to-br from-lime-400 to-lime-600 rounded-lg p-4 mt-6">
-				<h3 className="text-xl font-semibold mb-2">🛍️ Vendas de Produtos:</h3>
+				{/* Vendas de Produtos */}
+				<div className="bg-emerald-600/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-emerald-400 md:col-span-2 xl:col-span-1 h-80 flex flex-col">
+					<h3 className="text-xl font-semibold mb-3 shrink-0">
+						🛍️ Vendas de Produtos
+					</h3>
 
-				{vendasProdutos.length === 0 ? (
-					<p>Nenhum produto vendido hoje.</p>
-				) : (
-					<ul className="mt-4 space-y-2">
-						{vendasProdutos.map((v, i) => (
-							<li
-								key={i}
-								className="flex flex-wrap justify-between border-b border-gray-500 pb-1"
-							>
-								<span>
-									• {v.nome_produto} ({v.quantidade_produto}x)
-								</span>
-								<span>
-									{formatarBRL(v.valor_produto * v.quantidade_produto)}
-								</span>
-							</li>
-						))}
+					<div className="overflow-y-auto scrollbar-hidden pr-2 flex-1">
+						{vendasProdutos.length === 0 ? (
+							<p>Nenhum produto vendido hoje.</p>
+						) : (
+							<ul className="space-y-2 text-lg">
+								{vendasProdutos.map((v, i) => (
+									<li
+										key={i}
+										className="flex flex-col border-b border-white/20 pb-1"
+									>
+										<div className="flex justify-between">
+											<span>• {v.nome_produto}</span>
+											<span>({v.quantidade_produto}x)</span>
+										</div>
+										<span>
+											{formatarBRL(v.valor_produto * v.quantidade_produto)}
+										</span>
+									</li>
+								))}
 
-						<li className="mt-2 font-bold">
-							Total:{" "}
-							{formatarBRL(
-								vendasProdutos.reduce(
-									(acc, v) => acc + v.valor_produto * v.quantidade_produto,
-									0
-								)
-							)}
-						</li>
-					</ul>
-				)}
-			</div>
-
-			<div className="bg-gradient-to-br from-purple-900 to-purple-600 rounded-lg p-4 mt-4 text-white shadow-lg">
-				<h3 className="text-xl font-semibold mb-2">
-					🧾 Pagamentos Pendentes/Alternativos:
-				</h3>
-				<ul className="list-disc ml-6 space-y-1">
-					{valoresOutros.detalhesRecebidos.map((d, i) => (
-						<li key={i}>
-							{formatarBRL(d.valor)}{" "}
-							<span className="italic text-gray-200">({d.descricao})</span>
-						</li>
-					))}
-				</ul>
-			</div>
-
-			{/* Controle de Gastos */}
-			<div className="bg-gradient-to-br from-red-600 to-red-800 rounded-lg p-4">
-				<h3 className="text-xl font-semibold mb-2 text-slate-200">
-					🗂️ Controle de Gastos:
-				</h3>
-				<label className="flex items-center gap-2 mb-4 text-slate-200">
-					<input
-						type="checkbox"
-						checked={mostrarInputs}
-						onChange={() => setMostrarInputs(!mostrarInputs)}
-					/>
-					Adicionar Gastos Diários
-				</label>
-
-				{mostrarInputs && (
-					<div className="space-y-4">
-						<input
-							type="text"
-							placeholder="Descrição do gasto"
-							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
-							value={descricaoGasto}
-							onChange={(e) => setDescricaoGasto(e.target.value)}
-						/>
-						<input
-							type="number"
-							min={0}
-							step={0.1}
-							placeholder="R$ 00,00"
-							className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
-							value={valorGasto}
-							onChange={(e) => setValorGasto(e.target.value)}
-						/>
-						<button
-							onClick={handleAdicionarGasto}
-							className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow-xl/20"
-						>
-							Adicionar Gasto
-						</button>
+								<li className="mt-2 font-bold text-xl">
+									Total:{" "}
+									{formatarBRL(
+										vendasProdutos.reduce(
+											(acc, v) => acc + v.valor_produto * v.quantidade_produto,
+											0
+										)
+									)}
+								</li>
+							</ul>
+						)}
 					</div>
-				)}
+				</div>
 
-				<ul className="mt-4 space-y-2">
-					{gastos.map((g, i) => (
-						<li
-							key={i}
-							className="text-lg flex items-center gap-2 flex-wrap text-slate-200"
-						>
-							{gastoEditandoIndex === i ? (
-								<>
-									<input
-										type="text"
-										className="p-1 rounded bg-gray-200 border border-gray-500 text-gray-900"
-										value={gastoEditado.descricaoGasto}
-										onChange={(e) =>
-											setGastoEditado((prev) => ({
-												...prev,
-												descricaoGasto: e.target.value
-											}))
-										}
-									/>
-									<input
-										type="number"
-										min={0}
-										step={0.1}
-										className="p-1 rounded bg-gray-200 border border-gray-500 text-gray-900"
-										value={gastoEditado.valorGasto}
-										onChange={(e) =>
-											setGastoEditado((prev) => ({
-												...prev,
-												valorGasto: parseFloat(e.target.value)
-											}))
-										}
-									/>
+				{/* Pagamentos Alternativos */}
+				<div className="bg-purple-700/90 backdrop-blur-md rounded-2xl p-5 shadow-lg border border-purple-500 h-80 flex flex-col">
+					<h3 className="text-2xl font-semibold mb-3 shrink-0">
+						🧾 Pagamentos Alternativos
+					</h3>
+
+					<div className="overflow-y-auto scrollbar-hidden pr-2 flex-1">
+						<ul className="space-y-1 text-lg">
+							{valoresOutros.detalhesRecebidos.map((d, i) => (
+								<li key={i}>
+									• {formatarBRL(d.valor)} ({d.descricao})
+								</li>
+							))}
+						</ul>
+					</div>
+				</div>
+
+				{/* Controle de Gastos */}
+				<div className="bg-red-700/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-red-400 h-80 flex flex-col">
+					<h3 className="text-2xl font-semibold mb-4 text-slate-100 shrink-0">
+						🗂️ Controle de Gastos
+					</h3>
+
+					<button
+						onClick={() => {
+							setGastoEditandoIndex(null)
+							setDescricaoGasto("")
+							setValorGasto("")
+							setMostrarInputs(true)
+						}}
+						className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl shadow-md cursor-pointer font-semibold w-full shrink-0"
+					>
+						Adicionar Gasto
+					</button>
+
+					{/* LISTA COM SCROLL */}
+					<div className="mt-4 overflow-y-auto scrollbar-hidden pr-2 flex-1">
+						<ul className="space-y-3">
+							{gastos.map((g, i) => (
+								<li
+									key={i}
+									className="bg-red-800/40 p-4 rounded-xl border border-red-500/20 shadow-sm text-slate-100 flex flex-col gap-2"
+								>
+									<div className="flex flex-col">
+										<span className="text-lg font-semibold leading-tight">
+											• {g.descricaoGasto.toUpperCase()}
+										</span>
+										<span className="text-base opacity-90">
+											{formatarBRL(g.valorGasto)}
+										</span>
+									</div>
+
+									<div className="flex gap-2 pt-1">
+										<button
+											className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded-lg cursor-pointer shadow w-full font-semibold"
+											onClick={() => {
+												setGastoEditandoIndex(i)
+												setGastoEditado({ ...g })
+												setMostrarInputs(true)
+											}}
+										>
+											Editar
+										</button>
+
+										<button
+											className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg cursor-pointer shadow w-full font-semibold"
+											onClick={async () => {
+												if (
+													window.confirm("Deseja realmente excluir este gasto?")
+												) {
+													await deleteGasto(g.id)
+												}
+											}}
+										>
+											Excluir
+										</button>
+									</div>
+								</li>
+							))}
+
+							<li className="text-slate-100 font-bold text-xl p-3 bg-red-900/40 rounded-xl border border-red-600/30 shadow">
+								• Total de Gastos: {formatarBRL(totalGastos)}
+							</li>
+						</ul>
+					</div>
+				</div>
+
+				{/* ================================
+   MODAL ADICIONAR / EDITAR GASTO
+================================== */}
+				{mostrarInputs && (
+					<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+						<div className="bg-white text-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6">
+							<h2 className="text-2xl font-bold mb-4 text-center">
+								{gastoEditandoIndex !== null
+									? "Editar Gasto"
+									: "Adicionar Gasto"}
+							</h2>
+
+							<div className="space-y-4">
+								<input
+									type="text"
+									placeholder="Descrição do gasto"
+									className="p-3 text-base rounded-xl bg-gray-100 border border-gray-300 w-full shadow-sm"
+									value={
+										gastoEditandoIndex !== null
+											? gastoEditado.descricaoGasto
+											: descricaoGasto
+									}
+									onChange={(e) =>
+										gastoEditandoIndex !== null
+											? setGastoEditado((prev) => ({
+													...prev,
+													descricaoGasto: e.target.value
+											  }))
+											: setDescricaoGasto(e.target.value)
+									}
+								/>
+
+								<input
+									type="number"
+									min={0}
+									step={0.1}
+									placeholder="Valor (R$)"
+									className="p-3 text-base rounded-xl bg-gray-100 border border-gray-300 w-full shadow-sm"
+									value={
+										gastoEditandoIndex !== null
+											? gastoEditado.valorGasto
+											: valorGasto
+									}
+									onChange={(e) =>
+										gastoEditandoIndex !== null
+											? setGastoEditado((prev) => ({
+													...prev,
+													valorGasto: parseFloat(e.target.value)
+											  }))
+											: setValorGasto(e.target.value)
+									}
+								/>
+
+								{/* Botões do modal */}
+								<div className="flex gap-3 mt-4">
 									<button
-										className="bg-green-600 text-white px-2 py-1 rounded cursor-pointer shadow-xl/20"
+										className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl w-full font-semibold cursor-pointer"
 										onClick={async () => {
-											await updateGasto(gastoEditado)
+											if (gastoEditandoIndex !== null) {
+												await updateGasto(gastoEditado)
+												setGastoEditandoIndex(null)
+											} else {
+												await handleAdicionarGasto()
+											}
+											setMostrarInputs(false)
+										}}
+									>
+										{gastoEditandoIndex !== null
+											? "Salvar Alterações"
+											: "Adicionar"}
+									</button>
+
+									<button
+										className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-xl w-full font-semibold cursor-pointer"
+										onClick={() => {
+											setMostrarInputs(false)
 											setGastoEditandoIndex(null)
 										}}
 									>
-										Salvar
-									</button>
-									<button
-										className="bg-gray-500 text-white px-2 py-1 rounded cursor-pointer shadow-xl/20"
-										onClick={() => setGastoEditandoIndex(null)}
-									>
 										Cancelar
 									</button>
-								</>
-							) : (
-								<>
-									<span className="font-bold">
-										• {g.descricaoGasto.toUpperCase()}:{" "}
-									</span>
-									{formatarBRL(g.valorGasto)}
-									<button
-										className="bg-blue-700 text-white px-2 py-1 rounded ml-2 cursor-pointer shadow-xl/20"
-										onClick={() => {
-											setGastoEditandoIndex(i)
-											setGastoEditado({ ...g })
-										}}
-									>
-										Editar
-									</button>
-									<button
-										className="bg-red-600 text-white px-2 py-1 rounded cursor-pointer shadow-xl/20"
-										onClick={async () => {
-											if (
-												window.confirm("Deseja realmente excluir este gasto?")
-											) {
-												await deleteGasto(g.id)
-											}
-										}}
-									>
-										Excluir
-									</button>
-								</>
-							)}
-						</li>
-					))}
-					<li className="text-slate-200">
-						<span className="font-bold">• Total de Gastos: </span>{" "}
-						{formatarBRL(totalGastos)}
-					</li>
-				</ul>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 
-			<div className="flex gap-4 justify-center flex-wrap items-start">
-				{/* Input de arquivo */}
-				<div className="space-y-2">
+			<div className="flex flex-wrap gap-4 items-center">
+				{/* BLOCO DE UPLOAD — Altura fixa para alinhamento perfeito */}
+				<div className="flex flex-col justify-center min-h-[90px]">
+					{/* Botão Anexar */}
 					<label
-						className={`inline-block px-4 py-2 rounded shadow-xl/20 text-white ${
+						className={`inline-block px-6 py-3 rounded-lg text-lg shadow-xl/20 text-white font-bold ${
 							notaFiscal
 								? "bg-gray-400 cursor-not-allowed"
 								: "bg-blue-600 hover:bg-blue-700 cursor-pointer"
 						}`}
 					>
-						Anexar Relatório Diário
+						🗒️ Anexar Nota
 						<input
 							type="file"
 							accept="application/pdf,image/*"
@@ -637,35 +700,58 @@ function RelatorioDiario() {
 						/>
 					</label>
 
+					{/* Feedback do arquivo */}
 					{notaFiscal && (
-						<div className="space-y-1">
-							<div className="text-base text-green-400 font-bold">
-								✅ Arquivo anexado:{" "}
-								<span className="font-semibold max-w-3xs block">
-									{notaFiscal}
-								</span>
-							</div>
+						<div className="mt-2 leading-tight">
+							<p className="text-green-400 font-bold text-sm">
+								✅ Arquivo anexado:
+							</p>
+							<span className="block text-sm max-w-52 break-all text-white">
+								{notaFiscal}
+							</span>
+
 							<button
 								type="button"
 								onClick={handleRemoverArquivo}
-								className="inline-block bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700 text-sm shadow-xl/20 cursor-pointer"
+								className="mt-1 bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-xs shadow-xl/20 cursor-pointer w-fit"
 							>
 								Remover Arquivo
 							</button>
 						</div>
 					)}
 				</div>
+
+				{/* Botões */}
 				<button
 					onClick={handleGerarRelatorio}
-					className="bg-green-600 hover:bg-green-800 text-white px-6 py-3 rounded-lg text-lg font-bold cursor-pointer shadow-xl/20"
+					className="bg-green-600 hover:bg-green-800 text-white px-6 py-3 rounded-lg text-lg font-bold shadow-xl/20 cursor-pointer"
 				>
 					📥 Gerar Relatório Diário
 				</button>
+
 				<button
 					onClick={handleLimparDados}
-					className="bg-red-700 hover:bg-red-800 text-white px-6 py-3 rounded-lg text-lg font-bold cursor-pointer shadow-xl/20"
+					className="bg-red-700 hover:bg-red-800 text-white px-6 py-3 rounded-lg text-lg font-bold shadow-xl/20 cursor-pointer"
 				>
 					🧹 Limpar Dados e Resetar Sistema
+				</button>
+
+				<button
+					onClick={() => {
+						const numeroEmpresa = "5521982906741"
+						const mensagem = formatRelatorioMensagem({
+							totalServicosPrestados,
+							valoresRecebidos,
+							vendasProdutos,
+							valoresOutros,
+							gastos
+						})
+						const url = `https://wa.me/${numeroEmpresa}?text=${mensagem}`
+						window.open(url, "_blank")
+					}}
+					className="bg-gradient-to-br from-green-500 to-green-600 text-white px-6 py-3 rounded-lg text-lg font-bold shadow-xl/20 hover:scale-105 transition-transform cursor-pointer"
+				>
+					📱 Enviar Relatório via WhatsApp
 				</button>
 			</div>
 		</div>

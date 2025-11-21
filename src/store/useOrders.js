@@ -2,30 +2,33 @@ import { create } from "zustand"
 import { supabase } from "../supabaseClient"
 
 // 🔹 Mapeia a ordem que vem do banco para o formato usado no React
-const mapOrderFromDB = (o) => ({
-	...o,
-	dataHora: o.data_hora,
-	responsavel: o.responsavel || "",
-	carroNumero: o.carro_numero,
-	modeloCarro: o.carro_modelo || "",
-	placaCarro: o.carro_placa || "",
-	tipoVeiculo: o.tipo_veiculo || [],
-	servicos: o.servicos || [],
-	observacoes: o.observacoes || "",
-	total: o.total,
-	caixinha: o.caixinha,
-	vendaProdutosAtiva: o.venda_produtos_ativa,
-	nomeProduto: o.nome_produto || "",
-	valorProduto: o.valor_produto,
-	quantidadeProduto: o.quantidade_produto,
-	formaPagamento: o.forma_pagamento || "",
-	descricaoOutros: o.descricao_outros || "",
-	status: o.status,
-	notaFiscal: o.nota_fiscal || null,
-	notaFiscalUrl: o.nota_fiscal_url || null,
-	notaFiscalPath: o.nota_fiscal_path || null,
-	isDeleted: o.is_deleted || false
-})
+const mapOrderFromDB = (o) => {
+	if (!o) return null
+	return {
+		...o,
+		dataHora: o.data_hora ?? o.dataHora ?? new Date().toISOString(),
+		responsavel: o.responsavel || "",
+		carroNumero: o.carro_numero ?? o.carroNumero ?? 0,
+		modeloCarro: o.carro_modelo || "",
+		placaCarro: o.carro_placa || "",
+		tipoVeiculo: o.tipo_veiculo || [],
+		servicos: o.servicos || [],
+		observacoes: o.observacoes || "",
+		total: o.total ?? 0,
+		caixinha: o.caixinha ?? 0,
+		vendaProdutosAtiva: o.venda_produtos_ativa ?? false,
+		nomeProduto: o.nome_produto || "",
+		valorProduto: o.valor_produto ?? 0,
+		quantidadeProduto: o.quantidade_produto ?? 0,
+		formaPagamento: o.forma_pagamento || "",
+		descricaoOutros: o.descricao_outros || "",
+		status: o.status || "em processamento",
+		notaFiscal: o.nota_fiscal || null,
+		notaFiscalUrl: o.nota_fiscal_url || null,
+		notaFiscalPath: o.nota_fiscal_path || null,
+		isDeleted: o.is_deleted ?? false
+	}
+}
 
 const useOrders = create((set, get) => ({
 	orders: [],
@@ -51,29 +54,43 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Criar nova ordem (suporte a nota fiscal)
 	addOrder: async (order) => {
+		const {
+			data: { user },
+			error: userError
+		} = await supabase.auth.getUser()
+
+		if (userError || !user) {
+			console.error("❌ Usuário não autenticado:", userError)
+			alert("Sessão expirada. Faça login novamente para continuar.")
+			return null
+		}
+
 		const record = {
-			data_hora: order.dataHora,
+			created_by: user.id,
+			data_hora: order.dataHora ?? new Date().toISOString(),
 			responsavel: order.responsavel?.trim() || "",
 			carro_numero: Number(order.carroNumero) || 0,
 			carro_modelo: order.modeloCarro?.trim() || "",
 			carro_placa: order.placaCarro?.trim() || "",
-			tipo_veiculo: order.tipoVeiculo,
-			servicos: order.servicos,
-			observacoes: order.observacoes.trim() || "",
+			tipo_veiculo: Array.isArray(order.tipoVeiculo) ? order.tipoVeiculo : [],
+			servicos: Array.isArray(order.servicos) ? order.servicos : [],
+			observacoes: order.observacoes?.trim() || "",
 			total: Number(order.total) || 0,
 			caixinha: Number(order.caixinha) || 0,
 			venda_produtos_ativa: !!order.vendaProdutosAtiva,
 			nome_produto: order.nomeProduto?.trim() || "",
 			valor_produto: Number(order.valorProduto) || 0,
 			quantidade_produto: Number(order.quantidadeProduto) || 0,
-			forma_pagamento: order.formaPagamento,
-			descricao_outros: order.descricaoOutros,
+			forma_pagamento: order.formaPagamento || "",
+			descricao_outros: order.descricaoOutros?.trim() || "",
 			status: order.status || "em processamento",
-			is_deleted: false,
 			nota_fiscal: order.notaFiscal || null,
 			nota_fiscal_url: order.notaFiscalUrl || null,
-			nota_fiscal_path: order.notaFiscalPath || null
+			nota_fiscal_path: order.notaFiscalPath || null,
+			is_deleted: false
 		}
+
+		console.log("📤 Enviando novo registro:", record)
 
 		const { data, error } = await supabase
 			.from("orders_storage")
@@ -84,6 +101,7 @@ const useOrders = create((set, get) => ({
 			console.error("Erro ao adicionar ordem:", error)
 			return null
 		} else {
+			console.log("✅ Ordem criada:", data)
 			const mapped = data.map(mapOrderFromDB)
 			set((state) => ({ orders: [...state.orders, ...mapped] }))
 			return mapped[0]
@@ -92,68 +110,68 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Atualizar ordem (com preservação de status e nota fiscal)
 	updateOrder: async (updated) => {
-		const existingOrder = get().orders.find((o) => o.id === updated.id)
+		const {
+			data: { user }
+		} = await supabase.auth.getUser()
 
-		if (!existingOrder) {
-			console.error("Ordem não encontrada para atualização.")
+		console.log("🛠️ Atualizando ordem:", updated)
+		if (!updated?.id) {
+			console.error("updateOrder: ID não informado", updated)
 			return null
-		}
-
-		// Preserva status
-		let finalStatus = existingOrder.status
-		if (updated.status && updated.status !== existingOrder.status) {
-			finalStatus = updated.status
-		}
-
-		const safeUpdate = {
-			data_hora: updated.dataHora ?? existingOrder.dataHora,
-			responsavel: updated.responsavel ?? existingOrder.responsavel,
-			carro_numero: updated.carroNumero ?? existingOrder.carroNumero,
-			carro_modelo: updated.modeloCarro ?? existingOrder.modeloCarro,
-			carro_placa: updated.placaCarro ?? existingOrder.placaCarro,
-			tipo_veiculo: updated.tipoVeiculo ?? existingOrder.tipoVeiculo,
-			servicos: updated.servicos ?? existingOrder.servicos,
-			observacoes: updated.observacoes ?? existingOrder.observacoes,
-			total: updated.total ?? existingOrder.total,
-			caixinha: updated.caixinha ?? existingOrder.caixinha,
-			venda_produtos_ativa:
-				updated.vendaProdutosAtiva ?? existingOrder.vendaProdutosAtiva,
-			nome_produto: updated.nomeProduto ?? existingOrder.nomeProduto,
-			valor_produto: updated.valorProduto ?? existingOrder.valorProduto,
-			quantidade_produto:
-				updated.quantidadeProduto ?? existingOrder.quantidadeProduto,
-			forma_pagamento: updated.formaPagamento ?? existingOrder.formaPagamento,
-			descricao_outros:
-				updated.descricaoOutros ?? existingOrder.descricaoOutros,
-			status: updated.status ?? existingOrder.status,
-			nota_fiscal: updated.notaFiscal ?? null,
-			nota_fiscal_url: updated.notaFiscalUrl ?? null,
-			nota_fiscal_path: updated.notaFiscalPath ?? null,
-			is_deleted: updated.isDeleted ?? existingOrder.isDeleted
 		}
 
 		const { data, error } = await supabase
 			.from("orders_storage")
-			.update(safeUpdate)
+			.update({
+				data_hora: updated.dataHora ?? new Date().toISOString(),
+				responsavel: updated.responsavel ?? "",
+				carro_numero: Number(updated.carroNumero) || 0,
+				carro_modelo: updated.modeloCarro ?? "",
+				carro_placa: updated.placaCarro ?? "",
+				tipo_veiculo: Array.isArray(updated.tipoVeiculo)
+					? updated.tipoVeiculo
+					: [],
+				servicos: Array.isArray(updated.servicos) ? updated.servicos : [],
+				observacoes: updated.observacoes ?? "",
+				total: Number(updated.total) || 0,
+				caixinha: Number(updated.caixinha) || 0,
+				venda_produtos_ativa: !!updated.vendaProdutosAtiva,
+				nome_produto: updated.nomeProduto ?? "",
+				valor_produto: Number(updated.valorProduto) || 0,
+				quantidade_produto: Number(updated.quantidadeProduto) || 0,
+				forma_pagamento: updated.formaPagamento ?? "",
+				descricao_outros: updated.descricaoOutros ?? "",
+				status: updated.status ?? "em processamento",
+				nota_fiscal: updated.notaFiscal ?? null,
+				nota_fiscal_url: updated.notaFiscalUrl ?? null,
+				nota_fiscal_path: updated.notaFiscalPath ?? null,
+				is_deleted: updated.isDeleted ?? false,
+				updated_by: user?.id || null
+			})
 			.eq("id", updated.id)
 			.select()
 
 		if (error) {
 			console.error("Erro ao atualizar ordem:", error)
 			return null
-		} else {
-			const mapped = mapOrderFromDB(data[0])
-			set((state) => ({
-				orders: state.orders.map((order) =>
-					order.id === updated.id ? mapped : order
-				)
-			}))
-			return mapped
 		}
+
+		if (!data?.length) {
+			console.warn("updateOrder: Nenhum dado retornado")
+			return null
+		}
+
+		const mapped = mapOrderFromDB(data[0])
+		set((state) => ({
+			orders: state.orders.map((o) => (o.id === updated.id ? mapped : o))
+		}))
+		return mapped
 	},
 
 	// 🔹 Soft Delete
 	softDeleteOrder: async (id) => {
+		console.log("🗑️ softDeleteOrder:", id)
+
 		const { data, error } = await supabase
 			.from("orders_storage")
 			.update({ is_deleted: true })
@@ -161,7 +179,12 @@ const useOrders = create((set, get) => ({
 			.select()
 
 		if (error) {
-			console.error("Erro ao mover ordem para lixeira:", error)
+			console.error("❌ Erro ao mover ordem para lixeira:", error.message)
+			return
+		}
+
+		if (!data?.length) {
+			console.warn("⚠️ softDeleteOrder: Nenhum dado retornado. Verifique RLS.")
 			return
 		}
 
@@ -174,6 +197,8 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Restaurar
 	restoreOrder: async (id) => {
+		console.log("♻️ restoreOrder:", id)
+
 		const { data, error } = await supabase
 			.from("orders_storage")
 			.update({ is_deleted: false })
@@ -181,7 +206,12 @@ const useOrders = create((set, get) => ({
 			.select()
 
 		if (error) {
-			console.error("Erro ao restaurar ordem:", error)
+			console.error("❌ Erro ao restaurar ordem:", error.message)
+			return
+		}
+
+		if (!data?.length) {
+			console.warn("⚠️ restoreOrder: Nenhum dado retornado. Verifique RLS.")
 			return
 		}
 
@@ -194,18 +224,29 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Exclusão permanente
 	permanentlyDeleteOrder: async (id) => {
-		const { error } = await supabase
+		console.log("🔥 permanentlyDeleteOrder:", id)
+
+		const { data, error } = await supabase
 			.from("orders_storage")
 			.delete()
 			.eq("id", id)
+			.select() // <-- IMPORTANTE
 
 		if (error) {
-			console.error("Erro ao deletar ordem:", error)
-		} else {
-			set((state) => ({
-				deletedOrders: state.deletedOrders.filter((o) => o.id !== id)
-			}))
+			console.error("❌ Erro ao deletar ordem permanentemente:", error.message)
+			return
 		}
+
+		if (!data || data.length === 0) {
+			console.warn(
+				"⚠️ Nenhum registro deletado. RLS provavelmente bloqueou o DELETE."
+			)
+			return
+		}
+
+		set((state) => ({
+			deletedOrders: state.deletedOrders.filter((o) => o.id !== id)
+		}))
 	}
 }))
 
