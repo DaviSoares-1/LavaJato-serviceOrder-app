@@ -90,8 +90,6 @@ const useOrders = create((set, get) => ({
 			is_deleted: false
 		}
 
-		console.log("📤 Enviando novo registro:", record)
-
 		const { data, error } = await supabase
 			.from("orders_storage")
 			.insert([record])
@@ -101,7 +99,6 @@ const useOrders = create((set, get) => ({
 			console.error("Erro ao adicionar ordem:", error)
 			return null
 		} else {
-			console.log("✅ Ordem criada:", data)
 			const mapped = data.map(mapOrderFromDB)
 			set((state) => ({ orders: [...state.orders, ...mapped] }))
 			return mapped[0]
@@ -114,7 +111,6 @@ const useOrders = create((set, get) => ({
 			data: { user }
 		} = await supabase.auth.getUser()
 
-		console.log("🛠️ Atualizando ordem:", updated)
 		if (!updated?.id) {
 			console.error("updateOrder: ID não informado", updated)
 			return null
@@ -170,7 +166,6 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Soft Delete
 	softDeleteOrder: async (id) => {
-		console.log("🗑️ softDeleteOrder:", id)
 
 		const { data, error } = await supabase
 			.from("orders_storage")
@@ -197,7 +192,6 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Restaurar
 	restoreOrder: async (id) => {
-		console.log("♻️ restoreOrder:", id)
 
 		const { data, error } = await supabase
 			.from("orders_storage")
@@ -224,8 +218,6 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Exclusão permanente
 	permanentlyDeleteOrder: async (id) => {
-		console.log("🔥 permanentlyDeleteOrder:", id)
-
 		const { data, error } = await supabase
 			.from("orders_storage")
 			.delete()

@@ -93,11 +93,32 @@ export const generateRelatorioDiarioPDF = async ({
 	}
 
 	const addField = (label, value) => {
+		const labelX = 12
+		const valueX = 150
+		const maxWidthLabel = 130 // impede sobrepor o value
+		const maxWidthValue = 40
+
 		doc.setFont("helvetica", "bold")
-		doc.text(`${label}`, 12, y)
+
+		// quebra automática do label
+		const labelLines = doc.splitTextToSize(label, maxWidthLabel)
+
+		// imprime o label (multi-linhas)
+		doc.text(labelLines, labelX, y)
+
+		// calcula altura ocupada pelo label
+		const labelHeight = labelLines.length * 6
+
+		// imprime o valor alinhado à direita
 		doc.setFont("helvetica", "normal")
-		doc.text(value || "", 70, y)
-		y += 8
+		const valueLines = doc.splitTextToSize(value || "", maxWidthValue)
+		doc.text(valueLines, valueX, y)
+
+		// altura final da linha
+		const valueHeight = valueLines.length * 6
+		const lineHeight = Math.max(labelHeight, valueHeight)
+
+		y += lineHeight + 4
 	}
 
 	// 🔹 Montagem do PDF
