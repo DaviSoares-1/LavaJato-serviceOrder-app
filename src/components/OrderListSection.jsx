@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 import { generatePDF } from "../utils/generatePDF"
-import { supabase } from "../supabaseClient"
+import Toast from "./Toast"
 
 function OrderListSection({ orders, onEdit, onDelete }) {
 	const [filtros, setFiltros] = useState({
@@ -191,7 +191,8 @@ function OrderListSection({ orders, onEdit, onDelete }) {
 									<strong>Total:</strong> {formatBRL(order.total)}
 								</p>
 								<p>
-									<strong>Venda:</strong> {formatBRL(order.valorProduto * order.quantidadeProduto)}
+									<strong>Venda:</strong>{" "}
+									{formatBRL(order.valorProduto * order.quantidadeProduto)}
 								</p>
 								<p>
 									<strong>Caixinha:</strong> {formatBRL(order.caixinha)}

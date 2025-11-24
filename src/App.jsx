@@ -192,7 +192,15 @@ function Sistema() {
 								orders={orders}
 								onEdit={handleEdit}
 								// ✅ Correção: passa o id, não o objeto inteiro
-								onDelete={(order) => softDeleteOrder(order.id)}
+								onDelete={(order) => {
+									softDeleteOrder(order.id)
+									triggerToast(
+										`A ordem número: (${
+											order.carroNumero
+										}) - Carro: ${order.modeloCarro.toUpperCase()} foi Excluída.`,
+										"delete"
+									)
+								}}
 							/>
 						</div>
 
@@ -207,8 +215,24 @@ function Sistema() {
 							<TrashListSection
 								deletedOrders={deletedOrders}
 								// ✅ Correções das referências
-								onRestore={(order) => restoreOrder(order.id)}
-								onPermanentDelete={(order) => permanentlyDeleteOrder(order.id)}
+								onRestore={(order) => {
+									restoreOrder(order.id)
+									triggerToast(
+										`A ordem número: (${
+											order.carroNumero
+										}) - Carro: ${order.modeloCarro.toUpperCase()} foi Restaurada.`,
+										"restore"
+									)
+								}}
+								onPermanentDelete={(order) => {
+									permanentlyDeleteOrder(order.id)
+									triggerToast(
+										`A ordem número: (${
+											order.carroNumero
+										}) - Carro: ${order.modeloCarro.toUpperCase()} foi Apagada.`,
+										"permanent-delete"
+									)
+								}}
 							/>
 						</div>
 					</div>
