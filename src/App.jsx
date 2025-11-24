@@ -110,7 +110,7 @@ function Sistema() {
 			<div className="flex-1 overflow-auto p-4">
 				{/* Cabeçalho */}
 				<div className="flex justify-between items-center mb-4">
-					<h1 className="text-3xl font-bold text-white text-center">
+					<h1 className="text-3xl font-extrabold text-white text-center tracking-wide">
 						📑 Sistema de Ordens de Serviço - JJ LAVA-JATO
 					</h1>
 					<button

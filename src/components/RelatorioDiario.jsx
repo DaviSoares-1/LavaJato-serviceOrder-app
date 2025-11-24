@@ -403,7 +403,7 @@ function RelatorioDiario() {
 
 			{/* GRID PRINCIPAL */}
 			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-				{/* Quantidade de Veículos */}
+				{/* Quan tidade de Veículos */}
 				<div className="bg-yellow-500/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-yellow-300">
 					<h3 className="text-xl font-semibold mb-3">
 						🚗 Quantidade de Veículos
