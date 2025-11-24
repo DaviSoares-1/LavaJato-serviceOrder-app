@@ -27,12 +27,17 @@ const useGastos = create((set, get) => ({
 
 	// 🔹 Criar novo gasto
 	addGasto: async (gasto) => {
+		const {
+			data: { user }
+		} = await supabase.auth.getUser()
+
 		const { data, error } = await supabase
 			.from("gastos_diarios")
 			.insert([
 				{
 					descricao_gasto: gasto.descricaoGasto,
-					valor_gasto: gasto.valorGasto
+					valor_gasto: gasto.valorGasto,
+					created_by: user.id
 				}
 			])
 			.select()
@@ -49,11 +54,16 @@ const useGastos = create((set, get) => ({
 
 	// 🔹 Atualizar gasto
 	updateGasto: async (updated) => {
+		const {
+			data: { user }
+		} = await supabase.auth.getUser()
+
 		const { data, error } = await supabase
 			.from("gastos_diarios")
 			.update({
 				descricao_gasto: updated.descricaoGasto,
-        valor_gasto: updated.valorGasto,      
+				valor_gasto: updated.valorGasto,
+				updated_by: user.id
 			})
 			.eq("id", updated.id)
 			.select()

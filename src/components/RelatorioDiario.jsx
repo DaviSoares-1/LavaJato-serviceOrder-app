@@ -352,6 +352,25 @@ function RelatorioDiario() {
 					)
 			}
 
+			// 🔹 Deletar arquivos do bucket "notas-fiscais/notas"
+			const { data: arquivos, error: listError } = await supabase.storage
+				.from("notas-fiscais")
+				.list("notas", { limit: 1000 }) // << ESSENCIAL!
+
+			if (listError) {
+				console.error("Erro ao listar arquivos:", listError)
+			} else if (arquivos?.length) {
+				const paths = arquivos.map((a) => `notas/${a.name}`)
+
+				const { error: delError } = await supabase.storage
+					.from("notas-fiscais")
+					.remove(paths)
+
+				if (delError) {
+					console.error("Erro ao deletar arquivos:", delError)
+				}
+			}
+
 			// 🔹 Limpar storage
 			useOrders.setState({ orders: [], deletedOrders: [] })
 			useGastos.setState({ gastos: [] })
@@ -403,7 +422,7 @@ function RelatorioDiario() {
 
 			{/* GRID PRINCIPAL */}
 			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-				{/* Quan tidade de Veículos */}
+				{/* Quantidade de Veículos */}
 				<div className="bg-yellow-500/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-yellow-300">
 					<h3 className="text-xl font-semibold mb-3">
 						🚗 Quantidade de Veículos
