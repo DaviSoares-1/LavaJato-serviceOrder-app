@@ -224,7 +224,7 @@ export default function App() {
 	const basename = isProd ? "/LavaJato-serviceOrder-app" : "/"
 
 	return (
-		<BrowserRouter basename={basename}>
+		<BrowserRouter>
 			<Routes>
 				<Route path="/" element={<Login />} />
 				<Route
