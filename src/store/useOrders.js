@@ -166,7 +166,6 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Soft Delete
 	softDeleteOrder: async (id) => {
-
 		const { data, error } = await supabase
 			.from("orders_storage")
 			.update({ is_deleted: true })
@@ -192,7 +191,6 @@ const useOrders = create((set, get) => ({
 
 	// 🔹 Restaurar
 	restoreOrder: async (id) => {
-
 		const { data, error } = await supabase
 			.from("orders_storage")
 			.update({ is_deleted: false })

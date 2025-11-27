@@ -1,7 +1,7 @@
+// useGastos.js
 import { create } from "zustand"
 import { supabase } from "../supabaseClient"
 
-// Mapeia dados vindos do Supabase para o formato usado no front
 const mapGastoFromDB = (g) => ({
 	...g,
 	descricaoGasto: g.descricao_gasto || "",
@@ -11,21 +11,40 @@ const mapGastoFromDB = (g) => ({
 const useGastos = create((set, get) => ({
 	gastos: [],
 
-	// 🔹 Buscar todos os gastos no Supabase
+	// 🔹 Buscar todos os gastos
 	fetchGastos: async () => {
 		const { data, error } = await supabase
 			.from("gastos_diarios")
 			.select("*")
 			.order("id", { ascending: true })
 
-		if (error) {
-			console.error("Erro ao buscar gastos:", error)
-		} else {
+		if (!error) {
 			set({ gastos: data.map(mapGastoFromDB) })
 		}
 	},
 
-	// 🔹 Criar novo gasto
+	// 🔥 Handlers locais usados pelo Realtime
+	addGastoLocal: (novo) => {
+		const gasto = mapGastoFromDB(novo)
+		set((state) => ({
+			gastos: [...state.gastos, gasto]
+		}))
+	},
+
+	updateGastoLocal: (updated) => {
+		const gasto = mapGastoFromDB(updated)
+		set((state) => ({
+			gastos: state.gastos.map((g) => (g.id === gasto.id ? gasto : g))
+		}))
+	},
+
+	deleteGastoLocal: (id) => {
+		set((state) => ({
+			gastos: state.gastos.filter((g) => g.id !== id)
+		}))
+	},
+
+	// 🔹 CRUD mantendo UI instantânea
 	addGasto: async (gasto) => {
 		const {
 			data: { user }
@@ -42,58 +61,24 @@ const useGastos = create((set, get) => ({
 			])
 			.select()
 
-		if (error) {
-			console.error("Erro ao adicionar gasto:", error)
-			return null
-		} else {
-			const mapped = data.map(mapGastoFromDB)
-			set((state) => ({ gastos: [...state.gastos, ...mapped] }))
-			return mapped[0]
-		}
+		if (!error) return data[0]
 	},
 
-	// 🔹 Atualizar gasto
 	updateGasto: async (updated) => {
-		const {
-			data: { user }
-		} = await supabase.auth.getUser()
-
 		const { data, error } = await supabase
 			.from("gastos_diarios")
 			.update({
 				descricao_gasto: updated.descricaoGasto,
-				valor_gasto: updated.valorGasto,
-				updated_by: user.id
+				valor_gasto: updated.valorGasto
 			})
 			.eq("id", updated.id)
 			.select()
 
-		if (error) {
-			console.error("Erro ao atualizar gasto:", error)
-			return null
-		} else {
-			const mapped = mapGastoFromDB(data[0])
-			set((state) => ({
-				gastos: state.gastos.map((g) => (g.id === updated.id ? mapped : g))
-			}))
-			return mapped
-		}
+		if (!error) return data[0]
 	},
 
-	// 🔹 Deletar gasto permanentemente
 	deleteGasto: async (id) => {
-		const { error } = await supabase
-			.from("gastos_diarios")
-			.delete()
-			.eq("id", id)
-
-		if (error) {
-			console.error("Erro ao deletar gasto:", error)
-		} else {
-			set((state) => ({
-				gastos: state.gastos.filter((g) => g.id !== id)
-			}))
-		}
+		await supabase.from("gastos_diarios").delete().eq("id", id)
 	}
 }))
 

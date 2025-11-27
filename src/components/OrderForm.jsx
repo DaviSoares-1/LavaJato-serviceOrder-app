@@ -8,6 +8,7 @@ import React, {
 import useOrders from "../store/useOrders"
 import Toast from "./Toast"
 import { uploadNotaFiscal, deleteNotaFiscal } from "../utils/uploadNotaFiscal"
+import useClientes from "../store/useClientes"
 
 function OrderForm({ editingOrder, setEditingOrder }, ref) {
 	const fileInputRef = useRef(null)
@@ -33,7 +34,11 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 		notaFiscal: null, // 👈 string com nome do arquivo
 		notaFiscalUrl: null, // 👈 URL pública no supabase
 		notaFiscalFile: null, // 👈 objeto File temporário
-		notaFiscalPath: null // 👈 caminho interno no Storage
+		notaFiscalPath: null, // 👈 caminho interno no Storage
+		// 🔹 Campos para CADASTRO de Cliente
+		nomeClienteNovo: "",
+		contatoClienteNovo: "",
+		qntdServicosNovo: 0
 	})
 	const [showToast, setShowToast] = useState(false)
 	const [toastMessage, setToastMessage] = useState("")
@@ -41,8 +46,32 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 	const [erroServicos, setErroServico] = useState(false)
 	const [erroVeiculo, setErroVeiculo] = useState(false)
 	const [erroNotaFiscal, setErroNotaFiscal] = useState(false)
+	// --- Cliente ---
+	const [modoCliente, setModoCliente] = useState("novo") // "novo" | "existente"
+	const [clienteSelecionado, setClienteSelecionado] = useState(null)
+	const [showClientesModal, setShowClientesModal] = useState(false)
+	const { clientes, fetchClientes, addCliente } = useClientes()
+	const [filtroCliente, setFiltroCliente] = useState("")
 
 	const localRef = React.useRef(null)
+
+	useEffect(() => {
+		fetchClientes()
+	}, [])
+
+	const normalize = (value) => (value ? value.toString().toLowerCase() : "")
+
+	const clientesFiltrados = clientes.filter((c) => {
+		const filtro = normalize(filtroCliente)
+
+		return (
+			normalize(c.nomeCliente).includes(filtro) ||
+			normalize(c.modeloVeiculo).includes(filtro) ||
+			normalize(c.placaVeiculo).includes(filtro) ||
+			normalize(c.contatoCliente).includes(filtro) ||
+			(c.qntdServicos ? c.qntdServicos.toString().includes(filtro) : false)
+		)
+	})
 
 	useImperativeHandle(ref, () => ({
 		resetForm,
@@ -222,7 +251,11 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			notaFiscal: null, // 👈 string com nome do arquivo
 			notaFiscalUrl: null, // 👈 URL pública no supabase
 			notaFiscalFile: null, // 👈 objeto File temporário
-			notaFiscalPath: null // 👈 caminho interno no Storage
+			notaFiscalPath: null, // 👈 caminho interno no Storage
+			// Reset dos dados de clientes
+			nomeClienteNovo: "",
+			contatoClienteNovo: "",
+			qntdServicosNovo: 0
 		})
 
 		if (fileInputRef.current) {
@@ -337,11 +370,35 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 
 		if (!validarCamposObrigatorios()) return
 
+		// Submit de Clientes
+		let clienteId = null
+
+		if (modoCliente === "novo") {
+			const novoCliente = await addCliente({
+				nomeCliente: form.nomeClienteNovo,
+				contatoCliente: form.contatoClienteNovo,
+				qntdServicos: Number(form.qntdServicosNovo) || 0,
+
+				// dados que já vêm do formulário da ordem
+				modeloVeiculo: form.modeloCarro,
+				placaVeiculo: form.placaCarro,
+				dataServico: form.dataHora
+			})
+
+			if (!novoCliente) {
+				alert("Erro ao cadastrar novo cliente.")
+				return
+			}
+
+			setClienteSelecionado(novoCliente)
+		}
+
 		// Decide status inicial
 		const deveProcessar = concluir || !!form.formaPagamento
 
 		// monta os dados SEM a nota fiscal ainda
 		const baseOrderData = {
+			clienteId,
 			dataHora: normalizeDateForDB(form.dataHora),
 			responsavel: form.responsavel.trim(),
 			carroNumero: form.carroNumero,
@@ -364,8 +421,6 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 				? "processada"
 				: "em processamento"
 		}
-
-		console.log("📦 Dados base:", baseOrderData)
 
 		if (editingOrder) {
 			// 🔹 edição → faz upload se tiver arquivo
@@ -404,6 +459,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			// 🔹 nova ordem → cria primeiro sem nota fiscal
 			const novaOrdem = await addOrder({
 				...baseOrderData,
+				clienteId,
 				notaFiscal: null,
 				notaFiscalUrl: null,
 				notaFiscalPath: null
@@ -721,6 +777,223 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 						/>
 					</div>
 				</div>
+				<div className="mt-4">
+					<label className="font-mono text-2xl font-bold text-slate-900">
+						Cliente:
+					</label>
+					<div className="flex gap-4 mt-2">
+						<label>
+							<input
+								type="radio"
+								name="clienteMode"
+								value="novo"
+								checked={modoCliente === "novo"}
+								onChange={() => {
+									setModoCliente("novo")
+									setClienteSelecionado(null)
+								}}
+							/>
+							<span className="ml-2 cursor-pointer">Cliente novo</span>
+						</label>
+
+						<label>
+							<input
+								type="radio"
+								name="clienteMode"
+								value="existente"
+								checked={modoCliente === "existente"}
+								onChange={() => setModoCliente("existente")}
+							/>
+							<span className="ml-2 cursor-pointer">Cliente já cadastrado</span>
+						</label>
+					</div>
+
+					{modoCliente === "existente" && (
+						<button
+							className="mt-3 px-3 py-2 bg-blue-500 text-white rounded cursor-pointer"
+							onClick={() => setShowClientesModal(true)}
+						>
+							Selecionar Cliente
+						</button>
+					)}
+
+					{/* 🔹 Campos exibidos apenas quando for cliente novo */}
+					{modoCliente === "novo" && (
+						<div className="mt-4 p-4 bg-gradient-to-br from-yellow-600 to-yellow-500 rounded-lg space-y-4 border border-yellow-500">
+							<h3 className="text-xl font-bold text-slate-900">
+								Cadastro de Novo Cliente
+							</h3>
+
+							{/* Nome do cliente */}
+							<div>
+								<label
+									htmlFor="nomeClienteNovo"
+									className="block mb-2 text-lg font-sans"
+								>
+									Nome do Cliente:
+								</label>
+								<input
+									id="nomeClienteNovo"
+									type="text"
+									placeholder="Nome completo"
+									value={form.nomeClienteNovo || ""}
+									onChange={(e) =>
+										setForm({ ...form, nomeClienteNovo: e.target.value })
+									}
+									className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full"
+									required
+								/>
+							</div>
+
+							{/* Quantidade de serviços */}
+							<div>
+								<label
+									htmlFor="qntdServicosNovo"
+									className="block mb-2 text-lg font-sans"
+								>
+									Quantidade de serviços (Histórico):
+								</label>
+								<input
+									id="qntdServicosNovo"
+									type="number"
+									min={0}
+									placeholder="0"
+									value={form.qntdServicosNovo || ""}
+									onChange={(e) =>
+										setForm({ ...form, qntdServicosNovo: e.target.value })
+									}
+									className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
+									required
+								/>
+							</div>
+
+							{/* Contato do cliente */}
+							<div>
+								<label
+									htmlFor="contatoClienteNovo"
+									className="block mb-2 text-lg font-sans"
+								>
+									Telefone / Contato:
+								</label>
+								<input
+									id="contatoClienteNovo"
+									type="number"
+									placeholder="DDD + número"
+									value={form.contatoClienteNovo || ""}
+									onChange={(e) =>
+										setForm({ ...form, contatoClienteNovo: e.target.value })
+									}
+									className="p-3 text-base rounded-lg bg-gray-300 text-gray-900 border border-gray-600 w-full no-spinner"
+									required
+								/>
+							</div>
+						</div>
+					)}
+
+					{clienteSelecionado && (
+						<div className="mt-3 p-3 bg-gray-100 rounded">
+							<p>
+								<strong>Cliente selecionado:</strong>{" "}
+								{clienteSelecionado.nomeCliente}
+							</p>
+							<p>
+								Veículo: {clienteSelecionado.modeloVeiculo} (
+								{clienteSelecionado.placaVeiculo})
+							</p>
+						</div>
+					)}
+				</div>
+
+				{showClientesModal && (
+					<div className="fixed inset-0 w-screen h-screen bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50">
+						<div className="bg-white text-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl p-6 h-[85%] overflow-hidden flex flex-col">
+							<h2 className="text-2xl font-bold mb-4 text-center">
+								Selecione um Cliente
+							</h2>
+
+							{/* Campo de busca */}
+							<input
+								type="text"
+								placeholder="Buscar cliente..."
+								className="p-3 text-base rounded-xl bg-gray-100 border border-gray-300 w-full shadow-sm mb-4"
+								value={filtroCliente}
+								onChange={(e) => setFiltroCliente(e.target.value.toLowerCase())}
+							/>
+
+							{/* Tabela */}
+							<div className="overflow-auto rounded-xl border border-gray-300 flex-1">
+								<table className="w-full border-collapse text-sm">
+									<thead className="bg-gray-100 text-center sticky top-0 shadow-sm">
+										<tr className="divide-x divide-gray-300">
+											<th className="px-4 py-3 font-semibold">#</th>
+											<th className="px-4 py-3 font-semibold whitespace-nowrap">
+												Nome
+											</th>
+											<th className="px-4 py-3 font-semibold whitespace-nowrap">
+												Telefone
+											</th>
+											<th className="px-4 py-3 font-semibold whitespace-nowrap">
+												Veículo
+											</th>
+											<th className="px-4 py-3 font-semibold whitespace-nowrap">
+												Placa
+											</th>
+											<th className="px-4 py-3 font-semibold whitespace-nowrap">
+												Lavagens
+											</th>
+											<th className="px-4 py-3 font-semibold"></th>
+										</tr>
+									</thead>
+
+									<tbody className="divide-y divide-gray-200 text-center">
+										{clientesFiltrados.map((c, index) => (
+											<tr key={c.id} className="hover:bg-gray-50">
+												<td className="px-4 py-3">{index + 1}</td>
+												<td className="px-4 py-3 text-left">{c.nomeCliente}</td>
+												<td className="px-4 py-3">{c.contatoCliente}</td>
+												<td className="px-4 py-3 whitespace-nowrap">
+													{c.modeloVeiculo}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap">
+													{c.placaVeiculo}
+												</td>
+												<td className="px-4 py-3 font-semibold">
+													{c.qntdServicos ?? 0}
+												</td>
+
+												<td className="px-4 py-3">
+													<button
+														className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow-sm whitespace-nowrap cursor-pointer"
+														onClick={() => {
+															setClienteSelecionado(c)
+															setForm((prev) => ({
+																...prev,
+																responsavel: c.nomeCliente,
+																modeloCarro: c.modeloVeiculo,
+																placaCarro: c.placaVeiculo,
+																qntdServicosNovo: c.qntdServicos
+															}))
+															setShowClientesModal(false)
+														}}
+													>
+														Selecionar
+													</button>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+
+							<button
+								className="mt-4 bg-gray-700 hover:bg-gray-800 text-white px-4 py-3 rounded-xl w-full text-center font-semibold shadow-sm cursor-pointer"
+								onClick={() => setShowClientesModal(false)}
+							>
+								Fechar
+							</button>
+						</div>
+					</div>
+				)}
 				<h2 className="font-mono text-2xl font-bold text-slate-900">
 					Dados do Veículo:
 				</h2>

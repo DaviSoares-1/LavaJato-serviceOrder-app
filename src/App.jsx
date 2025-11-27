@@ -8,6 +8,7 @@ import {
 import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
 import Login from "./components/Login"
+import ClientesPainel from "./components/ClientesPainel"
 import OrderForm from "./components/OrderForm"
 import OrderListSection from "./components/OrderListSection"
 import TrashListSection from "./components/TrashListSection"
@@ -85,6 +86,74 @@ function Sistema() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
+	// 🔄 Realtime Orders + Gastos Diarios
+	useEffect(() => {
+		fetchOrders() // Garantir que carrega ao abrir
+
+		// --- Realtime ORDERS ---
+		const ordersChannel = supabase
+			.channel("realtime-orders")
+			.on(
+				"postgres_changes",
+				{ event: "INSERT", schema: "public", table: "orders_storage" },
+				(payload) => {
+					console.log("📥 New order realtime", payload.new)
+					fetchOrders() // Alternativa: addOrderLocal(payload.new)
+				}
+			)
+			.on(
+				"postgres_changes",
+				{ event: "UPDATE", schema: "public", table: "orders_storage" },
+				(payload) => {
+					console.log("✏️ Updated order realtime", payload.new)
+					fetchOrders() // Melhor abordagem até concluirmos updateOrderLocal
+				}
+			)
+			.on(
+				"postgres_changes",
+				{ event: "DELETE", schema: "public", table: "orders_storage" },
+				(payload) => {
+					console.log("🗑️ Deleted order realtime", payload.old.id)
+					fetchOrders() // Alternativa: deleteOrderLocal(payload.old.id)
+				}
+			)
+			.subscribe()
+
+		// --- Realtime Gastos Diarios ---
+		const gastosChannel = supabase
+			.channel("realtime-gastos")
+			.on(
+				"postgres_changes",
+				{ event: "INSERT", schema: "public", table: "gastos_diarios" },
+				({ new: novo }) => {
+					console.log("➕ Realtime INSERT gasto", novo)
+					useGastos.getState().addGastoLocal(novo)
+				}
+			)
+			.on(
+				"postgres_changes",
+				{ event: "UPDATE", schema: "public", table: "gastos_diarios" },
+				({ new: atualizado }) => {
+					console.log("♻️ Realtime UPDATE gasto", atualizado)
+					useGastos.getState().updateGastoLocal(atualizado)
+				}
+			)
+			.on(
+				"postgres_changes",
+				{ event: "DELETE", schema: "public", table: "gastos_diarios" },
+				({ old }) => {
+					console.log("🗑️ Realtime DELETE gasto", old.id)
+					useGastos.getState().deleteGastoLocal(old.id)
+				}
+			)
+			.subscribe()
+
+		return () => {
+			supabase.removeChannel(ordersChannel)
+			supabase.removeChannel(gastosChannel)
+		}
+	}, [])
+
 	const handleEdit = (order) => {
 		setEditingOrder(order)
 		formRef.current.scrollIntoView({
@@ -119,6 +188,7 @@ function Sistema() {
 					>
 						Sair
 					</button>
+					{/*<a href="/clientes">Clientes</a> ~ melhorar isso*/}
 				</div>
 
 				{/* Navegação */}
@@ -259,6 +329,7 @@ export default function App() {
 						</ProtectedRoute>
 					}
 				/>
+				<Route path="/clientes" element={<ClientesPainel />} />
 				<Route path="*" element={<Navigate to="/" />} />
 			</Routes>
 		</BrowserRouter>

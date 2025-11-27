@@ -757,7 +757,7 @@ function RelatorioDiario() {
 
 				<button
 					onClick={() => {
-						const numeroEmpresa = "5521982906741"
+						const numeroEmpresa = "5521997866541"
 						const mensagem = formatRelatorioMensagem({
 							totalServicosPrestados,
 							valoresRecebidos,
