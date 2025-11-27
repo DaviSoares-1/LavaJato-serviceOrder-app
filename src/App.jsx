@@ -188,7 +188,7 @@ function Sistema() {
 					>
 						Sair
 					</button>
-					{/*<a href="/clientes">Clientes</a> ~ melhorar isso*/}
+					<a href="/clientes">Clientes</a>
 				</div>
 
 				{/* Navegação */}

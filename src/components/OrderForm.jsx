@@ -47,11 +47,12 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 	const [erroVeiculo, setErroVeiculo] = useState(false)
 	const [erroNotaFiscal, setErroNotaFiscal] = useState(false)
 	// --- Cliente ---
-	const [modoCliente, setModoCliente] = useState("novo") // "novo" | "existente"
+	const [modoCliente, setModoCliente] = useState("nenhum") // "novo" | "existente"
 	const [clienteSelecionado, setClienteSelecionado] = useState(null)
 	const [showClientesModal, setShowClientesModal] = useState(false)
 	const { clientes, fetchClientes, addCliente } = useClientes()
 	const [filtroCliente, setFiltroCliente] = useState("")
+	const permitirCadastrarCliente = !clienteSelecionado
 
 	const localRef = React.useRef(null)
 
@@ -72,6 +73,37 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			(c.qntdServicos ? c.qntdServicos.toString().includes(filtro) : false)
 		)
 	})
+
+	const resolveCliente = async () => {
+		let clienteId = clienteSelecionado?.id || null
+
+		if (modoCliente === "novo") {
+			if (!form.nomeClienteNovo.trim()) {
+				triggerToast("Informe o nome do cliente!", "error")
+				return null
+			}
+
+			const novoCliente = await addCliente({
+				nomeCliente: form.nomeClienteNovo,
+				contatoCliente: form.contatoClienteNovo || null,
+				qntdServicos: Number(form.qntdServicosNovo) || 0,
+				modeloVeiculo: form.modeloCarro,
+				placaVeiculo: form.placaCarro,
+				dataServico: form.dataHora
+			})
+
+			if (!novoCliente) {
+				triggerToast("Erro ao cadastrar cliente!", "error")
+				return null
+			}
+
+			setClienteSelecionado(novoCliente)
+			setModoCliente("existente")
+			clienteId = novoCliente.id
+		}
+
+		return clienteId
+	}
 
 	useImperativeHandle(ref, () => ({
 		resetForm,
@@ -370,28 +402,8 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 
 		if (!validarCamposObrigatorios()) return
 
-		// Submit de Clientes
-		let clienteId = null
-
-		if (modoCliente === "novo") {
-			const novoCliente = await addCliente({
-				nomeCliente: form.nomeClienteNovo,
-				contatoCliente: form.contatoClienteNovo,
-				qntdServicos: Number(form.qntdServicosNovo) || 0,
-
-				// dados que já vêm do formulário da ordem
-				modeloVeiculo: form.modeloCarro,
-				placaVeiculo: form.placaCarro,
-				dataServico: form.dataHora
-			})
-
-			if (!novoCliente) {
-				alert("Erro ao cadastrar novo cliente.")
-				return
-			}
-
-			setClienteSelecionado(novoCliente)
-		}
+		const clienteId = await resolveCliente()
+		if (clienteId === null && modoCliente === "novo") return
 
 		// Decide status inicial
 		const deveProcessar = concluir || !!form.formaPagamento
@@ -527,8 +539,12 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			notaFiscalPath = result.path
 		}
 
+		const clienteId = await resolveCliente()
+		if (clienteId === null && modoCliente === "novo") return
+
 		const updatedForm = {
 			id: form.id,
+			clienteId,
 			dataHora: normalizeDateForDB(form.dataHora),
 			responsavel: form.responsavel,
 			carroNumero: form.carroNumero,
@@ -787,7 +803,22 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 								type="radio"
 								name="clienteMode"
 								value="novo"
+								checked={modoCliente === "nenhum"}
+								onChange={() => {
+									setModoCliente("nenhum")
+									setClienteSelecionado(null)
+								}}
+							/>
+							<span className="ml-2 cursor-pointer">Não cadastrar cliente</span>
+						</label>
+
+						<label>
+							<input
+								type="radio"
+								name="clienteMode"
+								value="novo"
 								checked={modoCliente === "novo"}
+								disabled={!!clienteSelecionado} // se já há cliente, não pode
 								onChange={() => {
 									setModoCliente("novo")
 									setClienteSelecionado(null)
