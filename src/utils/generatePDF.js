@@ -171,12 +171,9 @@ export const generatePDF = async (order) => {
 
 	// 🔹 Nome do arquivo
 	const isHunter = order.tipoVeiculo.includes("Hunter")
-	const isAliance = order.tipoVeiculo.includes("Aliance")
 
 	const fileName = isHunter
 		? `VEÍCULO-${order.carroNumero}-HUNTER.pdf`
-		: isAliance
-		? `VEÍCULO-${order.carroNumero}-ALIANCE.pdf`
 		: `VEÍCULO-${order.carroNumero}.pdf`
 
 	doc.save(fileName)
