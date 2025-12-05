@@ -104,10 +104,6 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 	}
 
 	// =================== Função: calcula preço base + extras ===================
-	/**
-	 * Retorna null se não houver informação suficiente (ex.: nenhum tipoVeiculo ou nenhum servico).
-	 * Regra: para tipos múltiplos de veículo, calcula o total base para cada tipo e escolhe o menor resultado.
-	 */
 	const getPrecoAutomaticoSomado = (
 		tipoVeiculoArray = [],
 		servicosArray = []
@@ -153,17 +149,20 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 
 	// =================== Preenche Total e Caixinha automaticamente ===================
 	useEffect(() => {
+		if (editingOrder) return // 👈 impede sobrescrever dados editados
+
 		const preco = getPrecoAutomaticoSomado(form.tipoVeiculo, form.servicos)
 
 		if (preco !== null) {
-			setForm((prev) => ({
-				...prev,
-				total: preco,
-				caixinha: 0
-			}))
+			setForm((prev) => {
+				if (prev.total !== "" && prev.total !== 0) return prev // 👈 usuário já tocou no campo
+				return {
+					...prev,
+					total: preco ?? prev.total
+				}
+			})
 		}
-		// se preco for null, não sobrescreve (mantém o que usuário já tenha digitado)
-	}, [form.tipoVeiculo, form.servicos])
+	}, [form.tipoVeiculo, form.servicos, editingOrder])
 
 	// 🔹 Define automaticamente o próximo número sequencial quando não está editando
 	useEffect(() => {
@@ -258,19 +257,19 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 	// ================== CRUD Supabase ==================
 
 	// ✅ Nova função utilitária
-	const validarCamposObrigatorios = () => {
+	const validarCamposObrigatorios = (snapshot) => {
 		let valido = true
 		const camposFaltando = []
 
 		// 🔹 Campos obrigatórios simples
 		const camposObrigatorios = [
-			{ campo: form.dataHora, nome: "Data/Hora" },
-			{ campo: form.responsavel, nome: "Responsável" },
-			{ campo: form.carroNumero, nome: "Numeração do carro" },
-			{ campo: form.modeloCarro, nome: "Modelo do carro" },
-			{ campo: form.placaCarro, nome: "Placa do carro" },
-			{ campo: form.total, nome: "Valor total" },
-			{ campo: form.caixinha, nome: "Caixinha" }
+			{ campo: snapshot.dataHora, nome: "Data/Hora" },
+			{ campo: snapshot.responsavel, nome: "Responsável" },
+			{ campo: snapshot.carroNumero, nome: "Numeração do carro" },
+			{ campo: snapshot.modeloCarro, nome: "Modelo do carro" },
+			{ campo: snapshot.placaCarro, nome: "Placa do carro" },
+			{ campo: snapshot.total, nome: "Valor total" },
+			{ campo: snapshot.caixinha, nome: "Caixinha" }
 		]
 
 		camposObrigatorios.forEach(({ campo, nome }) => {
@@ -299,10 +298,10 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 
 		// 🔹 Validação da Nota Fiscal (apenas se for Cartão ou Pix)
 		if (
-			(form.formaPagamento === "Crédito" ||
-				form.formaPagamento === "Débito" ||
-				form.formaPagamento === "Código QR Pix") &&
-			!(form.notaFiscalUrl || form.notaFiscalFile instanceof File)
+			(snapshot.formaPagamento === "Crédito" ||
+				snapshot.formaPagamento === "Débito" ||
+				snapshot.formaPagamento === "Código QR Pix") &&
+			!(snapshot.notaFiscalUrl || snapshot.notaFiscalFile instanceof File)
 		) {
 			setErroNotaFiscal(true)
 			camposFaltando.push("Nota Fiscal do Pagamento")
@@ -324,96 +323,58 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 	}
 
 	const handleSubmit = async (e, concluir = false) => {
-		if (e && typeof e.preventDefault === "function") e.preventDefault()
+		if (e?.preventDefault) e.preventDefault()
 
-		if (isCarroNumeroDuplicado()) {
-			triggerToast(
-				`A ordem número: (${form.carroNumero}) já foi adicionada!!`,
-				"error"
-			)
-			return
+		const snapshot = {
+			...form,
+			notaFiscalFile: form.notaFiscalFile
 		}
 
-		if (!validarCamposObrigatorios()) return
+		if (!validarCamposObrigatorios(snapshot)) return
 
-		// Decide status inicial
-		const deveProcessar = concluir || !!form.formaPagamento
+		const deveProcessar = concluir || !!snapshot.formaPagamento
 
-		// monta os dados SEM a nota fiscal ainda
-		const baseOrderData = {
-			dataHora: normalizeDateForDB(form.dataHora),
-			responsavel: form.responsavel.trim(),
-			carroNumero: form.carroNumero,
-			modeloCarro: form.modeloCarro.trim(),
-			placaCarro: form.placaCarro.trim(),
-			tipoVeiculo: form.tipoVeiculo,
-			servicos: form.servicos,
-			observacoes: formatInput(form.observacoes),
-			total: form.total,
-			caixinha: form.caixinha,
-			vendaProdutosAtiva: form.vendaProdutosAtiva,
-			nomeProduto: form.nomeProduto,
-			valorProduto: form.valorProduto,
-			quantidadeProduto: form.quantidadeProduto,
-			formaPagamento: form.formaPagamento,
-			descricaoOutros: formatInput(form.descricaoOutros),
-			status: editingOrder
-				? form.status
-				: deveProcessar
-				? "processada"
-				: "em processamento"
-		}
+		let novaOrdem = null
 
-		if (editingOrder) {
-			// 🔹 edição → faz upload se tiver arquivo
-			let notaFiscalUrl = form.notaFiscalUrl
-			let notaFiscalName = form.notaFiscal
-			let notaFiscalPath = form.notaFiscalPath
-
-			if (form.notaFiscalFile instanceof File) {
-				const result = await uploadNotaFiscal(form.notaFiscalFile, form.id)
-				if (!result) {
-					triggerToast("Erro ao enviar nota fiscal!", "error")
-					return
-				}
-				notaFiscalUrl = result.url
-				notaFiscalName = result.name
-				notaFiscalPath = result.path
-			}
-
-			await updateOrder({
-				id: editingOrder.id,
-				...baseOrderData,
-				notaFiscal: notaFiscalName,
-				notaFiscalUrl,
-				notaFiscalPath
-			})
-
-			setEditingOrder(null)
-			triggerToast(
-				`A ordem número: (${
-					form.carroNumero
-				}) - Carro: ${form.modeloCarro.toUpperCase()} foi Editada.`,
-				"edit"
-			)
-			resetForm()
-		} else {
-			// 🔹 nova ordem → cria primeiro sem nota fiscal
-			const novaOrdem = await addOrder({
-				...baseOrderData,
+		// ============================================
+		// 1️⃣ CRIA NOVA ORDEM
+		// ============================================
+		if (!snapshot.id) {
+			novaOrdem = await addOrder({
+				dataHora: normalizeDateForDB(snapshot.dataHora),
+				responsavel: snapshot.responsavel?.trim(),
+				carroNumero: snapshot.carroNumero,
+				modeloCarro: snapshot.modeloCarro?.trim(),
+				placaCarro: snapshot.placaCarro?.trim(),
+				tipoVeiculo: snapshot.tipoVeiculo,
+				servicos: snapshot.servicos,
+				observacoes: snapshot.observacoes,
+				total: snapshot.total,
+				caixinha: snapshot.caixinha,
+				vendaProdutosAtiva: snapshot.vendaProdutosAtiva,
+				nomeProduto: snapshot.nomeProduto,
+				valorProduto: snapshot.valorProduto,
+				quantidadeProduto: snapshot.quantidadeProduto,
+				formaPagamento: snapshot.formaPagamento,
+				descricaoOutros: snapshot.descricaoOutros,
+				status: deveProcessar ? "processada" : "em processamento",
 				notaFiscal: null,
 				notaFiscalUrl: null,
 				notaFiscalPath: null
 			})
 
-			if (!novaOrdem) {
-				triggerToast("Erro ao criar ordem!", "error")
+			if (!novaOrdem || !novaOrdem.id) {
+				triggerToast("Erro ao criar nova ordem!", "error")
 				return
 			}
 
-			// depois faz upload da nota se existir
-			if (form.notaFiscalFile instanceof File) {
-				const result = await uploadNotaFiscal(form.notaFiscalFile, novaOrdem.id)
+			// Upload da nota fiscal (se existir)
+			if (snapshot.notaFiscalFile instanceof File) {
+				const result = await uploadNotaFiscal(
+					snapshot.notaFiscalFile,
+					novaOrdem.id
+				)
+
 				if (result) {
 					await updateOrder({
 						id: novaOrdem.id,
@@ -425,84 +386,214 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			}
 
 			triggerToast(
-				`A ordem número: (${
-					form.carroNumero
-				}) - Carro: ${form.modeloCarro.toUpperCase()} foi Gerada.`,
+				`A ordem número (${snapshot.carroNumero}) foi ${
+					deveProcessar ? "Concluída" : "Criada"
+				}.`,
 				"success"
 			)
+
 			resetForm(novaOrdem)
+			setEditingOrder(null)
+			return
 		}
+
+		// ============================================
+		// 2️⃣ ATUALIZA ORDEM EXISTENTE
+		// ============================================
+		let notaFiscalUrl = snapshot.notaFiscalUrl
+		let notaFiscalName = snapshot.notaFiscal
+		let notaFiscalPath = snapshot.notaFiscalPath
+
+		if (snapshot.notaFiscalFile instanceof File) {
+			const result = await uploadNotaFiscal(
+				snapshot.notaFiscalFile,
+				snapshot.id
+			)
+			if (result) {
+				notaFiscalUrl = result.url
+				notaFiscalName = result.name
+				notaFiscalPath = result.path
+			}
+		}
+
+		await updateOrder({
+			id: snapshot.id,
+			dataHora: normalizeDateForDB(snapshot.dataHora),
+			responsavel: snapshot.responsavel?.trim(),
+			carroNumero: snapshot.carroNumero,
+			modeloCarro: snapshot.modeloCarro?.trim(),
+			placaCarro: snapshot.placaCarro?.trim(),
+			tipoVeiculo: snapshot.tipoVeiculo,
+			servicos: snapshot.servicos,
+			observacoes: snapshot.observacoes,
+			total: snapshot.total,
+			caixinha: snapshot.caixinha,
+			vendaProdutosAtiva: snapshot.vendaProdutosAtiva,
+			nomeProduto: snapshot.nomeProduto,
+			valorProduto: snapshot.valorProduto,
+			quantidadeProduto: snapshot.quantidadeProduto,
+			formaPagamento: snapshot.formaPagamento,
+			descricaoOutros: snapshot.descricaoOutros,
+			status: deveProcessar ? "processada" : "em processamento",
+			notaFiscal: notaFiscalName,
+			notaFiscalUrl,
+			notaFiscalPath
+		})
+
+		triggerToast(
+			`A ordem número (${snapshot.carroNumero}) foi Atualizada.`,
+			"success"
+		)
+
+		resetForm()
+		setEditingOrder(null)
 	}
 
+	/*
 	const handleConcluir = async () => {
-		// 🔹 Verifica se todos os campos obrigatórios estão preenchidos
-		if (!validarCamposObrigatorios()) {
+		const snapshot = {
+			...JSON.parse(JSON.stringify(form)),
+			notaFiscalFile: form.notaFiscalFile
+		}
+
+		if (!validarCamposObrigatorios(snapshot)) {
 			triggerToast(
-				"Preencha todos os campos obrigatórios antes de concluir a ordem!",
+				"Preencha todos os campos obrigatórios antes de concluir!",
 				"error"
 			)
 			return
 		}
 
-		// 🔹 A forma de pagamento é obrigatória para concluir
-		if (!form.formaPagamento) {
-			triggerToast("Selecione uma forma de pagamento para concluir!", "error")
+		if (!snapshot.formaPagamento) {
+			triggerToast("Selecione uma forma de pagamento!", "error")
 			return
 		}
 
-		let notaFiscalUrl = form.notaFiscalUrl
-		let notaFiscalName = form.notaFiscal
-		let notaFiscalPath = form.notaFiscalPath
+		// ===========================
+		// 1️⃣ ORDEM AINDA NÃO EXISTE
+		// ===========================
+		if (!snapshot.id) {
+			// 1.1 Criar ordem inicialmente SEM nota fiscal
+			const novaOrdem = await addOrder({
+				dataHora: normalizeDateForDB(snapshot.dataHora),
+				responsavel: snapshot.responsavel?.trim(),
+				carroNumero: snapshot.carroNumero,
+				modeloCarro: snapshot.modeloCarro?.trim(),
+				placaCarro: snapshot.placaCarro?.trim(),
+				tipoVeiculo: snapshot.tipoVeiculo,
+				servicos: snapshot.servicos,
+				observacoes: snapshot.observacoes,
+				total: snapshot.total,
+				caixinha: snapshot.caixinha,
+				vendaProdutosAtiva: snapshot.vendaProdutosAtiva,
+				nomeProduto: snapshot.nomeProduto,
+				valorProduto: snapshot.valorProduto,
+				quantidadeProduto: snapshot.quantidadeProduto,
+				formaPagamento: snapshot.formaPagamento,
+				descricaoOutros: snapshot.descricaoOutros,
+				status: "processada",
+				notaFiscal: null,
+				notaFiscalUrl: null,
+				notaFiscalPath: null
+			})
 
-		if (form.notaFiscalFile instanceof File) {
-			const result = await uploadNotaFiscal(
-				form.notaFiscalFile,
-				form.id || Date.now()
-			)
-			if (!result) {
-				triggerToast("Erro ao enviar nota fiscal!", "error")
+			if (!novaOrdem || !novaOrdem.id) {
+				triggerToast("Erro ao concluir ordem!", "error")
 				return
 			}
-			notaFiscalUrl = result.url
-			notaFiscalName = result.name
-			notaFiscalPath = result.path
+
+			let notaFiscalUrl = null
+			let notaFiscalName = null
+			let notaFiscalPath = null
+
+			// 1.2 Se houver arquivo, enviar usando o ID recém criado
+			if (snapshot.notaFiscalFile instanceof File) {
+				const result = await uploadNotaFiscal(
+					snapshot.notaFiscalFile,
+					novaOrdem.id
+				)
+
+				if (result) {
+					notaFiscalUrl = result.url
+					notaFiscalName = result.name
+					notaFiscalPath = result.path
+				}
+			}
+
+			// 1.3 Atualizar ordem com os dados da nota fiscal
+			await updateOrder({
+				id: novaOrdem.id,
+				notaFiscal: notaFiscalName,
+				notaFiscalUrl,
+				notaFiscalPath
+			})
+
+			triggerToast(
+				`A ordem número: (${
+					snapshot.carroNumero
+				}) - Carro: ${snapshot.modeloCarro.toUpperCase()} foi Concluída.`,
+				"success"
+			)
+
+			resetForm(novaOrdem)
+			setEditingOrder(null)
+			return
 		}
 
-		const updatedForm = {
-			id: form.id,
-			dataHora: normalizeDateForDB(form.dataHora),
-			responsavel: form.responsavel,
-			carroNumero: form.carroNumero,
-			modeloCarro: form.modeloCarro,
-			placaCarro: form.placaCarro,
-			tipoVeiculo: form.tipoVeiculo,
-			servicos: form.servicos,
-			observacoes: formatInput(form.observacoes),
-			total: form.total,
-			caixinha: form.caixinha,
-			vendaProdutosAtiva: form.vendaProdutosAtiva,
-			nomeProduto: form.nomeProduto,
-			valorProduto: form.valorProduto,
-			quantidadeProduto: form.quantidadeProduto,
-			formaPagamento: form.formaPagamento,
-			descricaoOutros: formatInput(form.descricaoOutros),
+		// ============================================
+		// 2️⃣ ORDEM JÁ EXISTE → APENAS ATUALIZAR
+		// ============================================
+		let notaFiscalUrl = snapshot.notaFiscalUrl
+		let notaFiscalName = snapshot.notaFiscal
+		let notaFiscalPath = snapshot.notaFiscalPath
+
+		if (snapshot.notaFiscalFile instanceof File) {
+			const result = await uploadNotaFiscal(
+				snapshot.notaFiscalFile,
+				snapshot.id
+			)
+
+			if (result) {
+				notaFiscalUrl = result.url
+				notaFiscalName = result.name
+				notaFiscalPath = result.path
+			}
+		}
+
+		await updateOrder({
+			id: snapshot.id,
+			dataHora: normalizeDateForDB(snapshot.dataHora),
+			responsavel: snapshot.responsavel?.trim(),
+			carroNumero: snapshot.carroNumero,
+			modeloCarro: snapshot.modeloCarro?.trim(),
+			placaCarro: snapshot.placaCarro?.trim(),
+			tipoVeiculo: snapshot.tipoVeiculo,
+			servicos: snapshot.servicos,
+			observacoes: snapshot.observacoes,
+			total: snapshot.total,
+			caixinha: snapshot.caixinha,
+			vendaProdutosAtiva: snapshot.vendaProdutosAtiva,
+			nomeProduto: snapshot.nomeProduto,
+			valorProduto: snapshot.valorProduto,
+			quantidadeProduto: snapshot.quantidadeProduto,
+			formaPagamento: snapshot.formaPagamento,
+			descricaoOutros: snapshot.descricaoOutros,
 			status: "processada",
 			notaFiscal: notaFiscalName,
-			notaFiscalUrl: notaFiscalUrl,
-			notaFiscalPath: notaFiscalPath
-		}
-
-		await updateOrder(updatedForm)
+			notaFiscalUrl,
+			notaFiscalPath
+		})
 
 		triggerToast(
 			`A ordem número: (${
-				form.carroNumero
-			}) - Carro: ${form.modeloCarro.toUpperCase()} foi Concluída.`,
+				snapshot.carroNumero
+			}) - Carro: ${snapshot.modeloCarro.toUpperCase()} foi Concluída.`,
 			"success"
 		)
-		setEditingOrder(null)
+
 		resetForm()
-	}
+		setEditingOrder(null)
+	}*/
 
 	const handleReabrir = async () => {
 		const updatedForm = {
@@ -991,9 +1082,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 				<div className="flex flex-wrap gap-4">
 					<button
 						type="button"
-						onClick={(e) =>
-							handleSubmit(e, !editingOrder && !!form.formaPagamento)
-						}
+						onClick={() => handleSubmit()}
 						className={`px-6 py-2 rounded shadow-xl/20 text-white ${
 							editingOrder
 								? form.status === "em processamento" && !!form.formaPagamento
@@ -1030,7 +1119,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 							{form.status === "em processamento" && (
 								<button
 									type="button"
-									onClick={handleConcluir}
+									onClick={() => handleSubmit(null, true)}
 									className={`px-6 py-2 rounded text-white shadow-xl/20 ${
 										form.formaPagamento && !isCarroNumeroDuplicado()
 											? "bg-green-600 hover:bg-green-700 cursor-pointer"
