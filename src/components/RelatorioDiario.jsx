@@ -27,6 +27,13 @@ function RelatorioDiario() {
 	const [toastMessage, setToastMessage] = useState("")
 	const [toastType, setToastType] = useState("success")
 
+	const triggerToast = (message, type = "success") => {
+		setToastMessage(message)
+		setToastType(type)
+		setShowToast(true)
+		setTimeout(() => setShowToast(false), 3000)
+	}
+
 	// 🔹 Carrega gastos do Supabase
 	useEffect(() => {
 		fetchGastos()
@@ -43,13 +50,6 @@ function RelatorioDiario() {
 			style: "currency",
 			currency: "BRL"
 		})
-	}
-
-	const triggerToast = (message, type = "success") => {
-		setToastMessage(message)
-		setToastType(type)
-		setShowToast(true)
-		setTimeout(() => setShowToast(false), 3000)
 	}
 
 	// Selecionar arquivo
@@ -233,11 +233,23 @@ function RelatorioDiario() {
 
 	// 🔹 Adicionar gasto no Supabase
 	const handleAdicionarGasto = async () => {
-		if (descricaoGasto.trim() && parseFloat(valorGasto) >= 0) {
-			await addGasto({ descricaoGasto, valorGasto: parseFloat(valorGasto) })
-			setDescricaoGasto("")
-			setValorGasto("")
+		if (!descricaoGasto.trim())
+			return triggerToast("Descrição obrigatória!", "error")
+		if (!valorGasto) return triggerToast("Valor inválido!", "error")
+
+		const { error } = await addGasto({
+			descricaoGasto,
+			valorGasto: parseFloat(valorGasto)
+		})
+
+		if (error) {
+			triggerToast("Erro ao adicionar gasto!", "error")
+			return
 		}
+
+		triggerToast("Gasto adicionado!", "success")
+		setDescricaoGasto("")
+		setValorGasto("")
 	}
 
 	// Relatório Diário em Mensagem de WhatsApp
@@ -420,6 +432,8 @@ function RelatorioDiario() {
 				📊 Relatório Diário
 			</h2>
 
+			{showToast && <Toast message={toastMessage} type={toastType} />}
+
 			{/* GRID PRINCIPAL */}
 			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 				{/* Quantidade de Veículos */}
@@ -482,83 +496,94 @@ function RelatorioDiario() {
 				</ul>
 			</div> */}
 
-				{/* Vendas de Produtos */}
-				<div className="bg-emerald-600/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-emerald-400 md:col-span-2 xl:col-span-1 h-80 flex flex-col">
-					<h3 className="text-xl font-semibold mb-3 shrink-0">
-						🛍️ Vendas de Produtos
-					</h3>
+				{/* =============================
+	   Vendas de Produtos + Pagamentos Alternativos NA MESMA LINHA
+	   ============================= */}
+				<div className="col-span-1 xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+					{/* Vendas de Produtos */}
+					<div className="bg-emerald-600/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-emerald-400 h-80 flex flex-col">
+						<h3 className="text-xl font-semibold mb-3 shrink-0">
+							🛍️ Vendas de Produtos
+						</h3>
 
-					<div className="overflow-y-auto scrollbar-hidden pr-2 flex-1">
-						{vendasProdutos.length === 0 ? (
-							<p>Nenhum produto vendido hoje.</p>
-						) : (
-							<ul className="space-y-2 text-lg">
-								{vendasProdutos.map((v, i) => (
-									<li
-										key={i}
-										className="flex flex-col border-b border-white/20 pb-1"
-									>
-										<div className="flex justify-between">
-											<span>• {v.nome_produto}</span>
-											<span>({v.quantidade_produto}x)</span>
-										</div>
-										<span>
-											{formatarBRL(v.valor_produto * v.quantidade_produto)}
-										</span>
+						<div className="overflow-y-auto scrollbar-hidden pr-2 flex-1">
+							{vendasProdutos.length === 0 ? (
+								<p>Nenhum produto vendido hoje.</p>
+							) : (
+								<ul className="space-y-2 text-lg">
+									{vendasProdutos.map((v, i) => (
+										<li
+											key={i}
+											className="flex flex-col border-b border-white/20 pb-1"
+										>
+											<div className="flex justify-between">
+												<span>• {v.nome_produto}</span>
+												<span>({v.quantidade_produto}x)</span>
+											</div>
+											<span>
+												{formatarBRL(v.valor_produto * v.quantidade_produto)}
+											</span>
+										</li>
+									))}
+
+									<li className="mt-2 font-bold text-xl">
+										Total:{" "}
+										{formatarBRL(
+											vendasProdutos.reduce(
+												(acc, v) =>
+													acc + v.valor_produto * v.quantidade_produto,
+												0
+											)
+										)}
+									</li>
+								</ul>
+							)}
+						</div>
+					</div>
+
+					{/* Pagamentos Alternativos */}
+					<div className="bg-purple-700/90 backdrop-blur-md rounded-2xl p-5 shadow-lg border border-purple-500 h-80 flex flex-col">
+						<h3 className="text-2xl font-semibold mb-3 shrink-0">
+							🧾 Pagamentos Alternativos
+						</h3>
+
+						<div className="overflow-y-auto scrollbar-hidden pr-2 flex-1">
+							<ul className="space-y-1 text-lg">
+								{valoresOutros.detalhesRecebidos.map((d, i) => (
+									<li key={i}>
+										• {formatarBRL(d.valor)} ({d.descricao})
 									</li>
 								))}
-
-								<li className="mt-2 font-bold text-xl">
-									Total:{" "}
-									{formatarBRL(
-										vendasProdutos.reduce(
-											(acc, v) => acc + v.valor_produto * v.quantidade_produto,
-											0
-										)
-									)}
-								</li>
 							</ul>
-						)}
+						</div>
 					</div>
 				</div>
 
-				{/* Pagamentos Alternativos */}
-				<div className="bg-purple-700/90 backdrop-blur-md rounded-2xl p-5 shadow-lg border border-purple-500 h-80 flex flex-col">
-					<h3 className="text-2xl font-semibold mb-3 shrink-0">
-						🧾 Pagamentos Alternativos
-					</h3>
+				{/* =============================
+	   CONTROLE DE GASTOS — LINHA COMPLETA
+	   ============================= */}
+				<div className="col-span-1 md:col-span-2 xl:col-span-3 bg-red-700/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-red-400 flex flex-col h-96">
+					{/* Cabeçalho (H3 + Botão) */}
+					<div className="flex flex-col gap-3 mb-4">
+						<h3 className="text-2xl font-semibold text-slate-100">
+							🗂️ Controle de Gastos
+						</h3>
 
-					<div className="overflow-y-auto scrollbar-hidden pr-2 flex-1">
-						<ul className="space-y-1 text-lg">
-							{valoresOutros.detalhesRecebidos.map((d, i) => (
-								<li key={i}>
-									• {formatarBRL(d.valor)} ({d.descricao})
-								</li>
-							))}
-						</ul>
+						<button
+							onClick={() => {
+								setGastoEditandoIndex(null)
+								setDescricaoGasto("")
+								setValorGasto("")
+								setMostrarInputs(true)
+							}}
+							className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl shadow-md cursor-pointer font-semibold w-64"
+						>
+							Adicionar Gasto
+						</button>
 					</div>
-				</div>
-
-				{/* Controle de Gastos */}
-				<div className="bg-red-700/90 backdrop-blur-md shadow-lg rounded-2xl p-5 border border-red-400 h-80 flex flex-col">
-					<h3 className="text-2xl font-semibold mb-4 text-slate-100 shrink-0">
-						🗂️ Controle de Gastos
-					</h3>
-
-					<button
-						onClick={() => {
-							setGastoEditandoIndex(null)
-							setDescricaoGasto("")
-							setValorGasto("")
-							setMostrarInputs(true)
-						}}
-						className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl shadow-md cursor-pointer font-semibold w-full shrink-0"
-					>
-						Adicionar Gasto
-					</button>
 
 					{/* LISTA COM SCROLL */}
-					<div className="mt-4 overflow-y-auto scrollbar-hidden pr-2 flex-1">
+					<div className="overflow-y-auto scrollbar-hidden pr-2 flex-1">
 						<ul className="space-y-3">
 							{gastos.map((g, i) => (
 								<li

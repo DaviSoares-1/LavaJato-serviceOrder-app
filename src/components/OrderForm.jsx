@@ -33,7 +33,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 		notaFiscal: null, // 👈 string com nome do arquivo
 		notaFiscalUrl: null, // 👈 URL pública no supabase
 		notaFiscalFile: null, // 👈 objeto File temporário
-		notaFiscalPath: null, // 👈 caminho interno no Storage
+		notaFiscalPath: null // 👈 caminho interno no Storage
 	})
 	const [showToast, setShowToast] = useState(false)
 	const [toastMessage, setToastMessage] = useState("")
@@ -221,7 +221,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			notaFiscal: null, // 👈 string com nome do arquivo
 			notaFiscalUrl: null, // 👈 URL pública no supabase
 			notaFiscalFile: null, // 👈 objeto File temporário
-			notaFiscalPath: null, // 👈 caminho interno no Storage
+			notaFiscalPath: null // 👈 caminho interno no Storage
 		})
 
 		if (fileInputRef.current) {
@@ -628,7 +628,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 			{showToast && <Toast message={toastMessage} type={toastType} />}
 			<form
 				onSubmit={handleSubmit}
-				className="w-full max-w-4xl bg-gradient-to-br from-yellow-300 to-yellow-600 p-5 md:p-10 rounded-xl shadow-lg space-y-6"
+				className="w-full max-w-4xl bg-yellow-500/90 backdrop-blur-lg p-4 md:p-8 rounded-2xl shadow-xl space-y-6"
 			>
 				<h2 className="font-mono text-2xl font-bold text-slate-900">
 					Dados do Atendimento:
@@ -690,7 +690,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 						/>
 					</div>
 				</div>
-				
+
 				<h2 className="font-mono text-2xl font-bold text-slate-900">
 					Dados do Veículo:
 				</h2>
@@ -742,7 +742,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 						"Carro Pequeno",
 						"Moto",
 						"Van",
-						"Hunter",
+						"Hunter"
 					].map((veiculo) => (
 						<label
 							key={veiculo}
@@ -768,7 +768,7 @@ function OrderForm({ editingOrder, setEditingOrder }, ref) {
 				<h2 className="font-mono text-2xl font-bold text-slate-900">
 					Serviços Solicitados:
 				</h2>
-				<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+				<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
 					{[
 						"Estacionamento",
 						"Lavagem Geral",

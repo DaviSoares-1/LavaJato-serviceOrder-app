@@ -2,83 +2,128 @@
 import { create } from "zustand"
 import { supabase } from "../supabaseClient"
 
-const mapGastoFromDB = (g) => ({
-	...g,
-	descricaoGasto: g.descricao_gasto || "",
-	valorGasto: parseFloat(g.valor_gasto) || 0
+// 🔹 Mapear dados vindos do BD para o formato usado no React
+const mapGastoFromDB = (g) => {
+	if (!g) return null
+	return {
+		...g,
+		descricaoGasto: g.descricao_gasto ?? "",
+		valorGasto: Number(g.valor_gasto) ?? 0,
+		createdBy: g.created_by ?? null,
+		updatedBy: g.updated_by ?? null,
+	}
+}
+
+// 🔹 Mapear do React → Banco
+const mapGastoToDB = (g) => ({
+	descricao_gasto: g.descricaoGasto?.trim() || "",
+	valor_gasto: Number(g.valorGasto) || 0
 })
 
 const useGastos = create((set, get) => ({
 	gastos: [],
 
-	// 🔹 Buscar todos os gastos
+	// 🔹 Buscar gastos
 	fetchGastos: async () => {
 		const { data, error } = await supabase
 			.from("gastos_diarios")
 			.select("*")
-			.order("id", { ascending: true })
+			.order("created_at", { ascending: false })
 
-		if (!error) {
-			set({ gastos: data.map(mapGastoFromDB) })
+		if (error) {
+			console.error("Erro ao buscar gastos:", error)
+			return
 		}
+
+		set({ gastos: data.map(mapGastoFromDB) })
 	},
 
-	// 🔥 Handlers locais usados pelo Realtime
-	addGastoLocal: (novo) => {
-		const gasto = mapGastoFromDB(novo)
-		set((state) => ({
-			gastos: [...state.gastos, gasto]
-		}))
-	},
-
-	updateGastoLocal: (updated) => {
-		const gasto = mapGastoFromDB(updated)
-		set((state) => ({
-			gastos: state.gastos.map((g) => (g.id === gasto.id ? gasto : g))
-		}))
-	},
-
-	deleteGastoLocal: (id) => {
-		set((state) => ({
-			gastos: state.gastos.filter((g) => g.id !== id)
-		}))
-	},
-
-	// 🔹 CRUD mantendo UI instantânea
+	// 🔹 Criar gasto
 	addGasto: async (gasto) => {
+		const {
+			data: { user },
+			error: userError
+		} = await supabase.auth.getUser()
+
+		if (userError || !user) {
+			console.error("Usuário não autenticado:", userError)
+			return { error: "Usuário não autenticado" }
+		}
+
+		const record = {
+			...mapGastoToDB(gasto),
+			created_by: user.id
+		}
+
+		const { data, error } = await supabase
+			.from("gastos_diarios")
+			.insert(record)
+			.select()
+			.single()
+
+		if (error) {
+			console.error("Erro ao adicionar gasto:", error)
+			return { data: null, error }
+		}
+
+		const mapped = mapGastoFromDB(data)
+
+		set((state) => ({
+			gastos: [mapped, ...state.gastos]
+		}))
+
+		return { data: mapped, error: null }
+	},
+
+	// 🔹 Atualizar gasto
+	updateGasto: async (gastoAtualizado) => {
 		const {
 			data: { user }
 		} = await supabase.auth.getUser()
 
+		const record = {
+			...mapGastoToDB(gastoAtualizado),
+			updated_by: user?.id || null
+		}
+
 		const { data, error } = await supabase
 			.from("gastos_diarios")
-			.insert([
-				{
-					descricao_gasto: gasto.descricaoGasto,
-					valor_gasto: gasto.valorGasto,
-					created_by: user.id
-				}
-			])
+			.update(record)
+			.eq("id", gastoAtualizado.id)
 			.select()
+			.single()
 
-		if (!error) return data[0]
+		if (error) {
+			console.error("Erro ao atualizar gasto:", error)
+			return { data: null, error }
+		}
+
+		const mapped = mapGastoFromDB(data)
+
+		set((state) => ({
+			gastos: state.gastos.map((g) => (g.id === mapped.id ? mapped : g))
+		}))
+
+		return { data: mapped, error: null }
 	},
 
-	updateGasto: async (updated) => {
-		const { data, error } = await supabase
-			.from("gastos_diarios")
-			.update({
-				descricao_gasto: updated.descricaoGasto,
-				valor_gasto: updated.valorGasto
-			})
-			.eq("id", updated.id)
-			.select()
-
-		if (!error) return data[0]
-	},
-
+	// 🔹 Deletar gasto
 	deleteGasto: async (id) => {
-		await supabase.from("gastos_diarios").delete().eq("id", id)
+		const { error } = await supabase
+			.from("gastos_diarios")
+			.delete()
+			.eq("id", id)
+
+		if (error) {
+			console.error("Erro ao remover gasto:", error)
+			return error
+		}
+
+		set((state) => ({
+			gastos: state.gastos.filter((g) => g.id !== id)
+		}))
+
+		return null
 	}
 }))
 

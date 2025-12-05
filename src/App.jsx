@@ -15,6 +15,7 @@ import TrashListSection from "./components/TrashListSection"
 import RelatorioDiario from "./components/RelatorioDiario"
 import Toast from "./components/Toast"
 import useOrders from "./store/useOrders"
+import useGastos from "./store/useGastos"
 
 function ProtectedRoute({ children }) {
 	const [user, setUser] = useState(null)
@@ -86,74 +87,6 @@ function Sistema() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
-	// 🔄 Realtime Orders + Gastos Diarios
-	useEffect(() => {
-		fetchOrders() // Garantir que carrega ao abrir
-
-		// --- Realtime ORDERS ---
-		const ordersChannel = supabase
-			.channel("realtime-orders")
-			.on(
-				"postgres_changes",
-				{ event: "INSERT", schema: "public", table: "orders_storage" },
-				(payload) => {
-					console.log("📥 New order realtime", payload.new)
-					fetchOrders() // Alternativa: addOrderLocal(payload.new)
-				}
-			)
-			.on(
-				"postgres_changes",
-				{ event: "UPDATE", schema: "public", table: "orders_storage" },
-				(payload) => {
-					console.log("✏️ Updated order realtime", payload.new)
-					fetchOrders() // Melhor abordagem até concluirmos updateOrderLocal
-				}
-			)
-			.on(
-				"postgres_changes",
-				{ event: "DELETE", schema: "public", table: "orders_storage" },
-				(payload) => {
-					console.log("🗑️ Deleted order realtime", payload.old.id)
-					fetchOrders() // Alternativa: deleteOrderLocal(payload.old.id)
-				}
-			)
-			.subscribe()
-
-		// --- Realtime Gastos Diarios ---
-		const gastosChannel = supabase
-			.channel("realtime-gastos")
-			.on(
-				"postgres_changes",
-				{ event: "INSERT", schema: "public", table: "gastos_diarios" },
-				({ new: novo }) => {
-					console.log("➕ Realtime INSERT gasto", novo)
-					useGastos.getState().addGastoLocal(novo)
-				}
-			)
-			.on(
-				"postgres_changes",
-				{ event: "UPDATE", schema: "public", table: "gastos_diarios" },
-				({ new: atualizado }) => {
-					console.log("♻️ Realtime UPDATE gasto", atualizado)
-					useGastos.getState().updateGastoLocal(atualizado)
-				}
-			)
-			.on(
-				"postgres_changes",
-				{ event: "DELETE", schema: "public", table: "gastos_diarios" },
-				({ old }) => {
-					console.log("🗑️ Realtime DELETE gasto", old.id)
-					useGastos.getState().deleteGastoLocal(old.id)
-				}
-			)
-			.subscribe()
-
-		return () => {
-			supabase.removeChannel(ordersChannel)
-			supabase.removeChannel(gastosChannel)
-		}
-	}, [])
-
 	const handleEdit = (order) => {
 		setEditingOrder(order)
 		formRef.current.scrollIntoView({
@@ -177,22 +110,31 @@ function Sistema() {
 	return (
 		<div className="bg-gray-900 min-h-screen flex flex-col md:flex-row custom-scrollbar">
 			<div className="flex-1 overflow-auto p-4">
-				{/* Cabeçalho */}
-				<div className="flex justify-between items-center mb-4">
-					<h1 className="text-3xl font-extrabold text-white text-center tracking-wide">
-						📑 Sistema de Ordens de Serviço - JJ LAVA-JATO
+				{/* Cabeçalho fixo */}
+				<header className="sticky top-0 z-40 bg-gray-900 p-3 border-b border-gray-700 flex justify-between items-center">
+					<h1 className="text-xl md:text-3xl font-extrabold text-white tracking-wide">
+						📑 JJ LAVA-JATO
 					</h1>
-					<button
-						onClick={handleLogout}
-						className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg cursor-pointer"
-					>
-						Sair
-					</button>
-					<a href="/clientes">Clientes</a>
-				</div>
 
-				{/* Navegação */}
-				<div className="flex justify-end gap-2 flex-wrap mb-2">
+					<div className="flex items-center gap-3">
+						<a
+							href="/clientes"
+							className="text-yellow-400 font-semibold text-sm md:text-base"
+						>
+							Gerenciar Clientes
+						</a>
+
+						<button
+							onClick={handleLogout}
+							className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm md:text-base"
+						>
+							Sair
+						</button>
+					</div>
+				</header>
+
+				{/* Navegação - DESKTOP (hidden no mobile) */}
+				<div className="hidden md:flex justify-end gap-2 flex-wrap mb-2 mt-4">
 					<button
 						onClick={() =>
 							relatorioRef.current?.scrollIntoView({
@@ -202,8 +144,9 @@ function Sistema() {
 						}
 						className="bg-yellow-500 px-4 py-2 rounded cursor-pointer"
 					>
-						Relatório
+						📊 Relatório
 					</button>
+
 					<button
 						onClick={() =>
 							ordensRef.current?.scrollIntoView({
@@ -213,8 +156,9 @@ function Sistema() {
 						}
 						className="bg-yellow-500 px-4 py-2 rounded cursor-pointer"
 					>
-						Ordens
+						📋 Ordens
 					</button>
+
 					<button
 						onClick={() =>
 							lixeiraRef.current?.scrollIntoView({
@@ -224,13 +168,52 @@ function Sistema() {
 						}
 						className="bg-yellow-500 px-4 py-2 rounded cursor-pointer"
 					>
-						Lixeira
+						🗑️ Lixeira
 					</button>
 				</div>
 
+				{/* Menu inferior - MOBILE (hidden no desktop) */}
+				<nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 p-2 flex justify-around md:hidden z-50">
+					<button
+						onClick={() =>
+							formRef.current?.scrollIntoView({ behavior: "smooth" })
+						}
+						className="text-yellow-400"
+					>
+						📄 Ficha
+					</button>
+
+					<button
+						onClick={() =>
+							relatorioRef.current?.scrollIntoView({ behavior: "smooth" })
+						}
+						className="text-yellow-400"
+					>
+						📊 Relatório
+					</button>
+
+					<button
+						onClick={() =>
+							ordensRef.current?.scrollIntoView({ behavior: "smooth" })
+						}
+						className="text-yellow-400"
+					>
+						📋 Ordens
+					</button>
+
+					<button
+						onClick={() =>
+							lixeiraRef.current?.scrollIntoView({ behavior: "smooth" })
+						}
+						className="text-yellow-400"
+					>
+						🗑️ Lixeira
+					</button>
+				</nav>
+
 				{showToast && <Toast message={toastMessage} type={toastType} />}
 
-				<div className="grid md:grid-cols-2 gap-4 md:gap-6">
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-20">
 					{/* Formulário */}
 					<div className="bg-gray-800 rounded-lg shadow-md overflow-y-scroll scrollbar-hidden max-h-[90vh]">
 						<OrderForm
