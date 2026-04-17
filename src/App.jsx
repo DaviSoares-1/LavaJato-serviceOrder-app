@@ -7,6 +7,7 @@ import {
 } from "react-router-dom"
 import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
+import Login from "./components/Login"
 import ClientesPainel from "./components/ClientesPainel"
 import OrderForm from "./components/OrderForm"
 import OrderListSection from "./components/OrderListSection"
@@ -15,6 +16,50 @@ import RelatorioDiario from "./components/RelatorioDiario"
 import Toast from "./components/Toast"
 import useOrders from "./store/useOrders"
 import useGastos from "./store/useGastos"
+
+function ProtectedRoute({ children }) {
+	const [user, setUser] = useState(null)
+	const [loading, setLoading] = useState(true)
+
+	useEffect(() => {
+		let active = true
+
+		const getUser = async () => {
+			const { data } = await supabase.auth.getUser()
+			if (active) {
+				setUser(data?.user ?? null)
+				setLoading(false)
+			}
+		}
+
+		getUser()
+
+		const { data: subscription } = supabase.auth.onAuthStateChange(
+			(_event, session) => {
+				if (active) {
+					setUser(session?.user ?? null)
+					setLoading(false)
+				}
+			}
+		)
+
+		return () => {
+			active = false
+			subscription.subscription.unsubscribe()
+		}
+	}, [])
+
+	if (loading) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 to-purple-600 text-white text-xl">
+				Carregando...
+			</div>
+		)
+	}
+
+	if (!user) return <Navigate to="/" replace />
+	return children
+}
 
 function Sistema() {
 	const {
@@ -258,6 +303,7 @@ export default function App() {
 	return (
 		<BrowserRouter>
 			<Routes>
+				<Route path="/" element={<Login />} />
 				<Route
 					path="/orderform"
 					element={
