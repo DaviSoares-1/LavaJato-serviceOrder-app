@@ -28,7 +28,7 @@ export default function Login() {
 				</h1>
 
 				{/* FORM */}
-				<form onSubmit={handleLogin} className="space-y-4">
+				<form onSubmit={Login} className="space-y-4">
 					{/* EMAIL */}
 					<div>
 						<label
