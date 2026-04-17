@@ -4,7 +4,6 @@ import { supabase } from "../supabaseClient"
 
 export default function Login() {
 	const [email, setEmail] = useState("")
-	const [password, setPassword] = useState("")
 	const [error, setError] = useState("")
 	const [loading, setLoading] = useState(false)
 	const navigate = useNavigate()
@@ -21,7 +20,7 @@ export default function Login() {
 		e.preventDefault()
 		setError("")
 
-		if (!email || !password) {
+		if (!email) {
 			setError("Preencha todos os campos.")
 			return
 		}
@@ -29,7 +28,6 @@ export default function Login() {
 		setLoading(true)
 		const { error } = await supabase.auth.signInWithPassword({
 			email,
-			password
 		})
 		setLoading(false)
 
