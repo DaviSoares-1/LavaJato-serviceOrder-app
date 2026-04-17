@@ -3,39 +3,6 @@ import { useNavigate } from "react-router-dom"
 import { supabase } from "../supabaseClient"
 
 export default function Login() {
-	const [email, setEmail] = useState("")
-	const [error, setError] = useState("")
-	const [loading, setLoading] = useState(false)
-	const navigate = useNavigate()
-
-	useEffect(() => {
-		const checkSession = async () => {
-			const { data } = await supabase.auth.getSession()
-			if (data?.session) navigate("/orderform")
-		}
-		checkSession()
-	}, [navigate])
-
-	const handleLogin = async (e) => {
-		e.preventDefault()
-		setError("")
-
-		if (!email) {
-			setError("Preencha todos os campos.")
-			return
-		}
-
-		setLoading(true)
-		const { error } = await supabase.auth.signInWithPassword({
-			email,
-		})
-		setLoading(false)
-
-		if (error) {
-			setError("Email ou senha incorretos.")
-			return
-		}
-
 		navigate("/OrderForm")
 	}
 
