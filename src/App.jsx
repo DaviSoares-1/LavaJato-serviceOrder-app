@@ -261,9 +261,7 @@ export default function App() {
 				<Route
 					path="/orderform"
 					element={
-						<ProtectedRoute>
 							<Sistema />
-						</ProtectedRoute>
 					}
 				/>
 				<Route path="/clientes" element={<ClientesPainel />} />
