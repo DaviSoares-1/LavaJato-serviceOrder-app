@@ -62,7 +62,7 @@ export default function Login() {
 	}
 
 		return (
-		<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-neutral-900 to-yellow-700">
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-neutral-900 to-yellow-700">
 			{/* CONTAINER PRINCIPAL */}
 			<div className="bg-yellow-500/90 backdrop-blur-md shadow-lg p-10 rounded-2xl w-full max-w-sm border border-black/20">
 				{/* LOGO */}
@@ -133,4 +133,4 @@ export default function Login() {
 				</form>
 			</div>
 		</div>
-	)
+		)
